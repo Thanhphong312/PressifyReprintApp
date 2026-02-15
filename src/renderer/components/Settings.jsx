@@ -8,9 +8,13 @@ export default function Settings() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [saveMessage, setSaveMessage] = useState(null);
+  const [appVersion, setAppVersion] = useState('');
 
   useEffect(() => {
     loadSettings();
+    if (window.electronAPI) {
+      window.electronAPI.getAppVersion().then(setAppVersion);
+    }
   }, []);
 
   async function loadSettings() {
@@ -49,7 +53,7 @@ export default function Settings() {
       const config = await window.electronAPI.settings.reset();
       setApiBaseUrl(config.apiBaseUrl || '');
       setApiTimeout(config.apiTimeout || 10000);
-      setSaveMessage({ type: 'info', text: 'Settings reset to .env defaults.' });
+      setSaveMessage({ type: 'info', text: 'Settings reset to defaults.' });
     } catch (err) {
       setSaveMessage({ type: 'danger', text: `Failed to reset: ${err.message}` });
     } finally {
@@ -82,7 +86,10 @@ export default function Settings() {
 
   return (
     <div>
-      <h4 className="mb-4">Settings</h4>
+      <div className="d-flex align-items-center justify-content-between mb-4">
+        <h4 className="mb-0">Settings</h4>
+        <span className="badge bg-primary fs-6">v{appVersion}</span>
+      </div>
 
       <div className="card" style={{ maxWidth: '600px' }}>
         <div className="card-body">

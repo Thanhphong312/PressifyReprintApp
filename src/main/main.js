@@ -1,12 +1,5 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-
-// Load .env before anything else
-const envPath = app.isPackaged
-  ? path.join(process.resourcesPath, '.env')
-  : path.join(app.getAppPath(), '.env');
-require('dotenv').config({ path: envPath });
-
 const Store = require('electron-store');
 const logger = require('./logger');
 const { registerHandlers } = require('./ipc-handlers');
@@ -80,9 +73,9 @@ const createWindow = () => {
 app.whenReady().then(async () => {
   logger.info('App ready', { version: app.getVersion(), platform: process.platform });
 
-  // Initialize API client (use stored settings if available, fallback to .env)
-  const apiBaseUrl = settingsStore.get('apiBaseUrl', process.env.API_BASE_URL || 'http://127.0.0.1:8000');
-  const apiTimeoutVal = settingsStore.get('apiTimeout', parseInt(process.env.API_TIMEOUT || '10000', 10));
+  // Initialize API client (use stored settings, fallback to defaults)
+  const apiBaseUrl = settingsStore.get('apiBaseUrl', 'http://127.0.0.1:8000');
+  const apiTimeoutVal = settingsStore.get('apiTimeout', 10000);
   apiClient.init(apiBaseUrl, apiTimeoutVal);
   logger.info('API client initialized');
 

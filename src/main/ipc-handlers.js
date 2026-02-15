@@ -12,8 +12,8 @@ function registerHandlers() {
 
   ipcMain.handle('settings:get', async () => {
     return {
-      apiBaseUrl: settingsStore.get('apiBaseUrl', process.env.API_BASE_URL || 'http://127.0.0.1:8000'),
-      apiTimeout: settingsStore.get('apiTimeout', parseInt(process.env.API_TIMEOUT || '10000', 10)),
+      apiBaseUrl: settingsStore.get('apiBaseUrl', 'http://127.0.0.1:8000'),
+      apiTimeout: settingsStore.get('apiTimeout', 10000),
     };
   });
 
@@ -28,10 +28,10 @@ function registerHandlers() {
   ipcMain.handle('settings:reset', async () => {
     settingsStore.delete('apiBaseUrl');
     settingsStore.delete('apiTimeout');
-    const apiBaseUrl = process.env.API_BASE_URL || 'http://127.0.0.1:8000';
-    const apiTimeout = parseInt(process.env.API_TIMEOUT || '10000', 10);
+    const apiBaseUrl = 'http://127.0.0.1:8000';
+    const apiTimeout = 10000;
     apiClient.init(apiBaseUrl, apiTimeout);
-    logger.info('Settings reset to .env defaults');
+    logger.info('Settings reset to defaults');
     return { apiBaseUrl, apiTimeout };
   });
 

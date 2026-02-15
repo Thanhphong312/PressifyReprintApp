@@ -4,7 +4,7 @@ module.exports = {
   packagerConfig: {
     name: 'Pressify Reprint',
     icon: path.resolve(__dirname, 'src/renderer/icon'),
-    extraResource: ['.env', 'src/renderer/icon.png'],
+    extraResource: ['src/renderer/icon.png'],
   },
   makers: [
     {

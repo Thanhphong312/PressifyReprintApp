@@ -45,6 +45,11 @@ const createWindow = () => {
     try {
       const { autoUpdater } = require('electron-updater');
 
+      autoUpdater.setFeedURL({
+        provider: 'github',
+        owner: 'Thanhphong312',
+        repo: 'PressifyReprintApp',
+      });
       autoUpdater.autoDownload = true;
       autoUpdater.autoInstallOnAppQuit = true;
 

@@ -110,7 +110,7 @@ export default function Settings() {
                 className="form-control"
                 value={apiBaseUrl}
                 onChange={(e) => setApiBaseUrl(e.target.value)}
-                placeholder="http://127.0.0.1:8000"
+                placeholder="https://hub.pressify.us"
               />
               <div className="form-text">The Laravel Vanguard API server address.</div>
             </div>

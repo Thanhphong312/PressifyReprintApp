@@ -12,7 +12,7 @@ function registerHandlers() {
 
   ipcMain.handle('settings:get', async () => {
     return {
-      apiBaseUrl: settingsStore.get('apiBaseUrl', 'http://127.0.0.1:8000'),
+      apiBaseUrl: settingsStore.get('apiBaseUrl', 'https://hub.pressify.us'),
       apiTimeout: settingsStore.get('apiTimeout', 10000),
     };
   });
@@ -28,7 +28,7 @@ function registerHandlers() {
   ipcMain.handle('settings:reset', async () => {
     settingsStore.delete('apiBaseUrl');
     settingsStore.delete('apiTimeout');
-    const apiBaseUrl = 'http://127.0.0.1:8000';
+    const apiBaseUrl = 'https://hub.pressify.us';
     const apiTimeout = 10000;
     apiClient.init(apiBaseUrl, apiTimeout);
     logger.info('Settings reset to defaults');

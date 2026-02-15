@@ -63,7 +63,7 @@ app.whenReady().then(async () => {
   logger.info('App ready', { version: app.getVersion(), platform: process.platform });
 
   // Initialize API client (use stored settings, fallback to defaults)
-  const apiBaseUrl = settingsStore.get('apiBaseUrl', 'http://127.0.0.1:8000');
+  const apiBaseUrl = settingsStore.get('apiBaseUrl', 'https://hub.pressify.us');
   const apiTimeoutVal = settingsStore.get('apiTimeout', 10000);
   apiClient.init(apiBaseUrl, apiTimeoutVal);
   logger.info('API client initialized');

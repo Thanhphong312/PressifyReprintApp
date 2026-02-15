@@ -104,7 +104,7 @@ export default function Login() {
                   className="form-control form-control-sm"
                   value={apiUrl}
                   onChange={(e) => setApiUrl(e.target.value)}
-                  placeholder="http://127.0.0.1:8000"
+                  placeholder="https://hub.pressify.us"
                 />
               </div>
               <div className="mb-2">

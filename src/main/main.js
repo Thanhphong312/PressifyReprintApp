@@ -43,31 +43,15 @@ const createWindow = () => {
   // Auto-updater setup (only in production)
   if (app.isPackaged) {
     try {
-      const { autoUpdater } = require('electron-updater');
-
-      autoUpdater.setFeedURL({
-        provider: 'github',
-        owner: 'Thanhphong312',
-        repo: 'PressifyReprintApp',
+      const { updateElectronApp, UpdateSourceType } = require('update-electron-app');
+      updateElectronApp({
+        updateSource: {
+          type: UpdateSourceType.ElectronPublicUpdateService,
+          repo: 'Thanhphong312/PressifyReprintApp',
+        },
+        updateInterval: '10 minutes',
+        notifyUser: true,
       });
-      autoUpdater.autoDownload = true;
-      autoUpdater.autoInstallOnAppQuit = true;
-
-      autoUpdater.on('update-available', (info) => {
-        logger.info('Update available', { version: info.version });
-        mainWindow.webContents.send('update-available', info);
-      });
-
-      autoUpdater.on('update-downloaded', (info) => {
-        logger.info('Update downloaded', { version: info.version });
-        mainWindow.webContents.send('update-downloaded', info);
-      });
-
-      autoUpdater.on('error', (err) => {
-        logger.error('Auto-updater error', { message: err.message });
-      });
-
-      autoUpdater.checkForUpdatesAndNotify();
       logger.info('Auto-updater initialized');
     } catch (err) {
       logger.error('Auto-updater init error', { message: err.message });
@@ -89,14 +73,6 @@ app.whenReady().then(async () => {
 
   // Core IPC
   ipcMain.handle('get-app-version', () => app.getVersion());
-
-  ipcMain.handle('install-update', () => {
-    logger.info('User requested update install');
-    if (app.isPackaged) {
-      const { autoUpdater } = require('electron-updater');
-      autoUpdater.quitAndInstall();
-    }
-  });
 
   ipcMain.handle('log-from-renderer', (_, level, message, data) => {
     if (['info', 'warn', 'error'].includes(level)) {

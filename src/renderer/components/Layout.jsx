@@ -8,6 +8,7 @@ const MENU_ITEMS = [
   { path: '/reprints', label: 'Reprints', icon: 'bi-printer', roles: null },
   { path: '/products', label: 'Products', icon: 'bi-box-seam', roles: ['admin'] },
   { path: '/permission', label: 'Permission', icon: 'bi-shield-lock', roles: ['admin'] },
+  { path: '/settings', label: 'Settings', icon: 'bi-gear', roles: ['admin'] },
 ];
 
 export default function Layout() {

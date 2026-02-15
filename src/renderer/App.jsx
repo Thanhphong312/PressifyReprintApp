@@ -7,6 +7,7 @@ import Dashboard from './components/Dashboard';
 import ReprintList from './components/ReprintList';
 import ProductList from './components/ProductList';
 import Permission from './components/Permission';
+import Settings from './components/Settings';
 
 function PrivateRoute({ children, roles }) {
   const { currentUser } = useAuth();
@@ -65,6 +66,14 @@ function AppRoutes() {
             element={
               <PrivateRoute roles={['admin']}>
                 <Permission />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="settings"
+            element={
+              <PrivateRoute roles={['admin']}>
+                <Settings />
               </PrivateRoute>
             }
           />

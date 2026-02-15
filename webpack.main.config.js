@@ -11,8 +11,4 @@ module.exports = {
   resolve: {
     extensions: ['.js', '.json'],
   },
-  externals: {
-    'dotenv': 'commonjs dotenv',
-    'electron-store': 'commonjs electron-store',
-  },
 };

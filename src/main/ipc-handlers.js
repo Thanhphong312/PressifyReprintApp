@@ -1,9 +1,58 @@
 const { ipcMain, shell } = require('electron');
+const Store = require('electron-store');
 const apiClient = require('./api-client');
 const tokenStore = require('./token-store');
 const logger = require('./logger');
 
+const settingsStore = new Store({ name: 'pressify-settings' });
+
 function registerHandlers() {
+
+  // ─── Settings ───
+
+  ipcMain.handle('settings:get', async () => {
+    return {
+      apiBaseUrl: settingsStore.get('apiBaseUrl', process.env.API_BASE_URL || 'http://127.0.0.1:8000'),
+      apiTimeout: settingsStore.get('apiTimeout', parseInt(process.env.API_TIMEOUT || '10000', 10)),
+    };
+  });
+
+  ipcMain.handle('settings:save', async (_, config) => {
+    settingsStore.set('apiBaseUrl', config.apiBaseUrl);
+    settingsStore.set('apiTimeout', config.apiTimeout);
+    apiClient.init(config.apiBaseUrl, config.apiTimeout);
+    logger.info('Settings saved and API client reinitialized', config);
+    return { success: true };
+  });
+
+  ipcMain.handle('settings:reset', async () => {
+    settingsStore.delete('apiBaseUrl');
+    settingsStore.delete('apiTimeout');
+    const apiBaseUrl = process.env.API_BASE_URL || 'http://127.0.0.1:8000';
+    const apiTimeout = parseInt(process.env.API_TIMEOUT || '10000', 10);
+    apiClient.init(apiBaseUrl, apiTimeout);
+    logger.info('Settings reset to .env defaults');
+    return { apiBaseUrl, apiTimeout };
+  });
+
+  ipcMain.handle('settings:testConnection', async (_, url) => {
+    try {
+      const testUrl = (url || '').replace(/\/+$/, '');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const { net } = require('electron');
+      const response = await net.fetch(`${testUrl}/api/me`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'Electron' },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      // Any response (even 401) means the server is reachable
+      return { success: true, message: `Server reachable (HTTP ${response.status})` };
+    } catch (err) {
+      return { success: false, message: err.name === 'AbortError' ? 'Connection timed out' : `Connection failed: ${err.message}` };
+    }
+  });
 
   // ─── Users ───
 

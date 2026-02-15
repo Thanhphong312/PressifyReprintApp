@@ -11,6 +11,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   log: (level, message, data) => ipcRenderer.invoke('log-from-renderer', level, message, data),
 
+  settings: {
+    get: () => ipcRenderer.invoke('settings:get'),
+    save: (config) => ipcRenderer.invoke('settings:save', config),
+    reset: () => ipcRenderer.invoke('settings:reset'),
+    testConnection: (url) => ipcRenderer.invoke('settings:testConnection', url),
+  },
+
   auth: {
     login: (username, password) => ipcRenderer.invoke('auth:login', username, password),
     logout: () => ipcRenderer.invoke('auth:logout'),

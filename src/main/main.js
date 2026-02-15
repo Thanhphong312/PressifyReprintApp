@@ -7,9 +7,12 @@ const envPath = app.isPackaged
   : path.join(app.getAppPath(), '.env');
 require('dotenv').config({ path: envPath });
 
+const Store = require('electron-store');
 const logger = require('./logger');
 const { registerHandlers } = require('./ipc-handlers');
 const apiClient = require('./api-client');
+
+const settingsStore = new Store({ name: 'pressify-settings' });
 
 // Handle Squirrel events for Windows installer
 if (require('electron-squirrel-startup')) {
@@ -77,11 +80,10 @@ const createWindow = () => {
 app.whenReady().then(async () => {
   logger.info('App ready', { version: app.getVersion(), platform: process.platform });
 
-  // Initialize API client
-  apiClient.init(
-    process.env.API_BASE_URL || 'http://127.0.0.1:8000',
-    parseInt(process.env.API_TIMEOUT || '10000', 10)
-  );
+  // Initialize API client (use stored settings if available, fallback to .env)
+  const apiBaseUrl = settingsStore.get('apiBaseUrl', process.env.API_BASE_URL || 'http://127.0.0.1:8000');
+  const apiTimeoutVal = settingsStore.get('apiTimeout', parseInt(process.env.API_TIMEOUT || '10000', 10));
+  apiClient.init(apiBaseUrl, apiTimeoutVal);
   logger.info('API client initialized');
 
   // Register all IPC handlers

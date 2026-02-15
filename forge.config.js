@@ -11,6 +11,8 @@ module.exports = {
       name: '@electron-forge/maker-squirrel',
       config: {
         name: 'pressify_reprint',
+        setupIcon: path.resolve(__dirname, 'src/renderer/icon.ico'),
+        iconUrl: 'https://raw.githubusercontent.com/Thanhphong312/PressifyReprintApp/main/src/renderer/icon.ico',
       },
     },
     {
@@ -27,7 +29,7 @@ module.exports = {
       name: '@electron-forge/publisher-github',
       config: {
         repository: {
-          owner: 'user',
+          owner: 'Thanhphong312',
           name: 'PressifyReprintApp',
         },
         prerelease: false,

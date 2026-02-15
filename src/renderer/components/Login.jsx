@@ -10,7 +10,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   function getErrorMessage(err) {
-    const msg = err.message || '';
+    let msg = err.message || '';
+    // Strip Electron IPC prefix: "Error invoking remote method '...': Error: "
+    msg = msg.replace(/^Error invoking remote method '[^']+': Error:\s*/, '');
     if (msg.includes('Rate limited')) return msg;
     if (msg.includes('Cannot connect to server'))
       return 'Cannot connect to server. Please check your network connection.';

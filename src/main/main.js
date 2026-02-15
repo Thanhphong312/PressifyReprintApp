@@ -49,7 +49,7 @@ const createWindow = () => {
           type: UpdateSourceType.ElectronPublicUpdateService,
           repo: 'Thanhphong312/PressifyReprintApp',
         },
-        updateInterval: '10 minutes',
+        updateInterval: '1 minute',
         notifyUser: true,
       });
       logger.info('Auto-updater initialized');

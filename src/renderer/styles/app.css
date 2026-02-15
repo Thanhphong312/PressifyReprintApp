@@ -1,0 +1,182 @@
+/* Login */
+.login-page {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  transition: width 0.2s ease;
+  flex-shrink: 0;
+}
+
+.sidebar-collapsed {
+  width: 60px;
+}
+
+.sidebar-header h5 {
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sidebar-link {
+  color: rgba(255, 255, 255, 0.7);
+  transition: background-color 0.15s, color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sidebar-link:hover {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-link.active {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.15);
+  border-left: 3px solid #0d6efd;
+}
+
+/* Topbar */
+.topbar {
+  height: 56px;
+  flex-shrink: 0;
+}
+
+/* Table */
+.table th {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.table td {
+  font-size: 0.875rem;
+  vertical-align: middle;
+}
+
+.table-responsive {
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+}
+
+.table-responsive thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* Reprint Table - Column Groups */
+.reprint-table thead th {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.col-group-order { background-color: #1a3a5c !important; }
+.col-group-product { background-color: #1a4a3c !important; }
+.col-group-error { background-color: #4a1a3c !important; }
+.col-group-status { background-color: #3c3a1a !important; }
+
+.cell-order { background-color: #f0f5fa; }
+.cell-product { background-color: #f0faf5; }
+.cell-error { background-color: #faf0f5; }
+.cell-status { background-color: #fafaf0; }
+
+.reprint-table tbody tr:hover .cell-order { background-color: #e0ecf5; }
+.reprint-table tbody tr:hover .cell-product { background-color: #e0f5ec; }
+.reprint-table tbody tr:hover .cell-error { background-color: #f5e0ec; }
+.reprint-table tbody tr:hover .cell-status { background-color: #f5f5e0; }
+
+.reprint-table td {
+  white-space: nowrap;
+  padding: 0.35rem 0.5rem !important;
+}
+
+.col-fixed-xs { width: 40px; }
+
+/* Inline editable cells */
+.editable-cell {
+  display: block;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  min-height: 22px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background-color 0.1s;
+}
+
+.editable-cell:hover {
+  background-color: rgba(13, 110, 253, 0.08);
+  outline: 1px dashed rgba(13, 110, 253, 0.3);
+}
+
+.inline-input {
+  font-size: 0.8rem !important;
+  padding: 1px 4px !important;
+  height: 26px !important;
+  min-width: 80px;
+}
+
+select.inline-input {
+  min-width: 130px;
+}
+
+/* Status select */
+.status-select {
+  font-size: 0.75rem;
+  padding: 2px 4px;
+  width: 110px;
+}
+
+/* Timeline */
+.timeline-entry {
+  position: relative;
+}
+
+.timeline-entry::before {
+  content: '';
+  position: absolute;
+  left: -9px;
+  top: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #0d6efd;
+}
+
+/* Modal backdrop scroll fix */
+.modal.d-block {
+  overflow-y: auto;
+}
+
+/* Cards */
+.card {
+  border-radius: 0.5rem;
+}
+
+/* Badge */
+.badge {
+  font-weight: 500;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}

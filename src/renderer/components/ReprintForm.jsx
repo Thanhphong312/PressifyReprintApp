@@ -50,19 +50,21 @@ export default function ReprintForm({ editData, onClose }) {
   const [productReprints, setProductReprints] = useState({});
   const [colorReprints, setColorReprints] = useState({});
   const [sizeReprints, setSizeReprints] = useState({});
+  const [userReprints, setUserReprints] = useState({});
   const [saving, setSaving] = useState(false);
-  const [addNewField, setAddNewField] = useState(null); // 'reason' | 'product' | 'color' | 'size'
+  const [addNewField, setAddNewField] = useState(null); // 'reason' | 'product' | 'color' | 'size' | 'userError' | 'userNote'
   const [newItemName, setNewItemName] = useState('');
 
   useEffect(() => {
     async function load() {
-      const [u, r, ot, pr, cr, sr] = await Promise.all([
+      const [u, r, ot, pr, cr, sr, ur] = await Promise.all([
         window.electronAPI.db.users.getAll(),
         window.electronAPI.db.reasons.getAll(),
         window.electronAPI.db.orderTypes.getAll(),
         window.electronAPI.db.productReprints.getAll(),
         window.electronAPI.db.colorReprints.getAll(),
         window.electronAPI.db.sizeReprints.getAll(),
+        window.electronAPI.db.userReprints.getAll(),
       ]);
       setUsers(u);
       setReasons(r);
@@ -70,6 +72,7 @@ export default function ReprintForm({ editData, onClose }) {
       setProductReprints(pr);
       setColorReprints(cr);
       setSizeReprints(sr);
+      setUserReprints(ur);
     }
     load();
   }, []);
@@ -84,8 +87,6 @@ export default function ReprintForm({ editData, onClose }) {
   }, [editData]);
 
   const supportUsers = Object.entries(users).filter(([, u]) => u.role === 'support');
-  const errorUsers = Object.entries(users).filter(([, u]) => u.role === 'presser');
-  const noteUsers = Object.entries(users).filter(([, u]) => ['cuter', 'picker'].includes(u.role));
 
   function handleChange(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -96,13 +97,17 @@ export default function ReprintForm({ editData, onClose }) {
     product: { field: 'product_reprint_id', api: window.electronAPI.db.productReprints, setter: setProductReprints },
     color: { field: 'color_reprint_id', api: window.electronAPI.db.colorReprints, setter: setColorReprints },
     size: { field: 'size_reprint_id', api: window.electronAPI.db.sizeReprints, setter: setSizeReprints },
+    userError: { field: 'user_error_id', api: window.electronAPI.db.userReprints, setter: setUserReprints, type: 1 },
+    userNote: { field: 'user_note', api: window.electronAPI.db.userReprints, setter: setUserReprints, type: 2 },
   };
 
   async function confirmAddNew() {
     if (!newItemName.trim() || !addNewField) return;
     const cfg = ADD_CFG[addNewField];
     try {
-      const res = await cfg.api.create({ name: newItemName.trim() });
+      const createData = { name: newItemName.trim() };
+      if (cfg.type) createData.type = cfg.type;
+      const res = await cfg.api.create(createData);
       const updated = await cfg.api.getAll();
       cfg.setter(updated);
       setForm((prev) => ({ ...prev, [cfg.field]: res.id || res }));
@@ -111,6 +116,32 @@ export default function ReprintForm({ editData, onClose }) {
     }
     setAddNewField(null);
     setNewItemName('');
+  }
+
+  async function deleteItem(cfgKey, itemId) {
+    const cfg = ADD_CFG[cfgKey];
+    try {
+      await cfg.api.delete(itemId);
+      const updated = await cfg.api.getAll();
+      cfg.setter(updated);
+      if (form[cfg.field] === itemId) {
+        setForm((prev) => ({ ...prev, [cfg.field]: '' }));
+      }
+    } catch (err) {
+      alert('Error deleting: ' + err.message);
+    }
+  }
+
+  function getFieldItems(cfgKey) {
+    switch (cfgKey) {
+      case 'reason': return Object.entries(reasons);
+      case 'product': return Object.entries(productReprints);
+      case 'color': return Object.entries(colorReprints);
+      case 'size': return Object.entries(sizeReprints);
+      case 'userError': return Object.entries(userReprints).filter(([, u]) => u.type === 1);
+      case 'userNote': return Object.entries(userReprints).filter(([, u]) => u.type === 2);
+      default: return [];
+    }
   }
 
   async function handleSubmit(e) {
@@ -172,10 +203,22 @@ export default function ReprintForm({ editData, onClose }) {
                 <div className="col-md-6">
                   <label className="form-label">Reason Reprint</label>
                   {addNewField === 'reason' ? (
-                    <div className="input-group">
-                      <input type="text" className="form-control" placeholder="New reason name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmAddNew(); } }} autoFocus />
-                      <button type="button" className="btn btn-success" onClick={confirmAddNew} disabled={!newItemName.trim()}>OK</button>
-                      <button type="button" className="btn btn-outline-secondary" onClick={() => setAddNewField(null)}>X</button>
+                    <div>
+                      {getFieldItems('reason').length > 0 && (
+                        <div style={{ maxHeight: '120px', overflowY: 'auto' }} className="border rounded mb-1 p-1">
+                          {getFieldItems('reason').map(([id, item]) => (
+                            <div key={id} className="d-flex justify-content-between align-items-center py-1 px-1">
+                              <span className="small">{item.name}</span>
+                              <button type="button" className="btn btn-sm btn-outline-danger py-0 px-1" style={{ fontSize: '0.65rem', lineHeight: 1 }} onClick={() => deleteItem('reason', id)}>&times;</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="input-group">
+                        <input type="text" className="form-control" placeholder="New reason name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmAddNew(); } }} autoFocus />
+                        <button type="button" className="btn btn-success" onClick={confirmAddNew} disabled={!newItemName.trim()}>OK</button>
+                        <button type="button" className="btn btn-outline-secondary" onClick={() => setAddNewField(null)}>X</button>
+                      </div>
                     </div>
                   ) : (
                     <div className="input-group">
@@ -203,10 +246,22 @@ export default function ReprintForm({ editData, onClose }) {
                 <div className="col-md-4">
                   <label className="form-label">Product</label>
                   {addNewField === 'product' ? (
-                    <div className="input-group">
-                      <input type="text" className="form-control" placeholder="New product name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmAddNew(); } }} autoFocus />
-                      <button type="button" className="btn btn-success" onClick={confirmAddNew} disabled={!newItemName.trim()}>OK</button>
-                      <button type="button" className="btn btn-outline-secondary" onClick={() => setAddNewField(null)}>X</button>
+                    <div>
+                      {getFieldItems('product').length > 0 && (
+                        <div style={{ maxHeight: '120px', overflowY: 'auto' }} className="border rounded mb-1 p-1">
+                          {getFieldItems('product').map(([id, item]) => (
+                            <div key={id} className="d-flex justify-content-between align-items-center py-1 px-1">
+                              <span className="small">{item.name}</span>
+                              <button type="button" className="btn btn-sm btn-outline-danger py-0 px-1" style={{ fontSize: '0.65rem', lineHeight: 1 }} onClick={() => deleteItem('product', id)}>&times;</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="input-group">
+                        <input type="text" className="form-control" placeholder="New product name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmAddNew(); } }} autoFocus />
+                        <button type="button" className="btn btn-success" onClick={confirmAddNew} disabled={!newItemName.trim()}>OK</button>
+                        <button type="button" className="btn btn-outline-secondary" onClick={() => setAddNewField(null)}>X</button>
+                      </div>
                     </div>
                   ) : (
                     <div className="input-group">
@@ -221,10 +276,22 @@ export default function ReprintForm({ editData, onClose }) {
                 <div className="col-md-4">
                   <label className="form-label">Color</label>
                   {addNewField === 'color' ? (
-                    <div className="input-group">
-                      <input type="text" className="form-control" placeholder="New color name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmAddNew(); } }} autoFocus />
-                      <button type="button" className="btn btn-success" onClick={confirmAddNew} disabled={!newItemName.trim()}>OK</button>
-                      <button type="button" className="btn btn-outline-secondary" onClick={() => setAddNewField(null)}>X</button>
+                    <div>
+                      {getFieldItems('color').length > 0 && (
+                        <div style={{ maxHeight: '120px', overflowY: 'auto' }} className="border rounded mb-1 p-1">
+                          {getFieldItems('color').map(([id, item]) => (
+                            <div key={id} className="d-flex justify-content-between align-items-center py-1 px-1">
+                              <span className="small">{item.name}</span>
+                              <button type="button" className="btn btn-sm btn-outline-danger py-0 px-1" style={{ fontSize: '0.65rem', lineHeight: 1 }} onClick={() => deleteItem('color', id)}>&times;</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="input-group">
+                        <input type="text" className="form-control" placeholder="New color name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmAddNew(); } }} autoFocus />
+                        <button type="button" className="btn btn-success" onClick={confirmAddNew} disabled={!newItemName.trim()}>OK</button>
+                        <button type="button" className="btn btn-outline-secondary" onClick={() => setAddNewField(null)}>X</button>
+                      </div>
                     </div>
                   ) : (
                     <div className="input-group">
@@ -239,10 +306,22 @@ export default function ReprintForm({ editData, onClose }) {
                 <div className="col-md-4">
                   <label className="form-label">Size</label>
                   {addNewField === 'size' ? (
-                    <div className="input-group">
-                      <input type="text" className="form-control" placeholder="New size name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmAddNew(); } }} autoFocus />
-                      <button type="button" className="btn btn-success" onClick={confirmAddNew} disabled={!newItemName.trim()}>OK</button>
-                      <button type="button" className="btn btn-outline-secondary" onClick={() => setAddNewField(null)}>X</button>
+                    <div>
+                      {getFieldItems('size').length > 0 && (
+                        <div style={{ maxHeight: '120px', overflowY: 'auto' }} className="border rounded mb-1 p-1">
+                          {getFieldItems('size').map(([id, item]) => (
+                            <div key={id} className="d-flex justify-content-between align-items-center py-1 px-1">
+                              <span className="small">{item.name}</span>
+                              <button type="button" className="btn btn-sm btn-outline-danger py-0 px-1" style={{ fontSize: '0.65rem', lineHeight: 1 }} onClick={() => deleteItem('size', id)}>&times;</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="input-group">
+                        <input type="text" className="form-control" placeholder="New size name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmAddNew(); } }} autoFocus />
+                        <button type="button" className="btn btn-success" onClick={confirmAddNew} disabled={!newItemName.trim()}>OK</button>
+                        <button type="button" className="btn btn-outline-secondary" onClick={() => setAddNewField(null)}>X</button>
+                      </div>
                     </div>
                   ) : (
                     <div className="input-group">
@@ -263,26 +342,68 @@ export default function ReprintForm({ editData, onClose }) {
                   <input type="text" className="form-control" value={form.machine_number} onChange={(e) => handleChange('machine_number', e.target.value)} />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label">User Error</label>
-                  <select className="form-select" value={form.user_error_id} onChange={(e) => handleChange('user_error_id', e.target.value)}>
-                    <option value="">Select user...</option>
-                    {errorUsers.map(([id, u]) => (
-                      <option key={id} value={id}>{u.name}</option>
-                    ))}
-                  </select>
+                  <label className="form-label">Ai Lam Sai</label>
+                  {addNewField === 'userError' ? (
+                    <div>
+                      {getFieldItems('userError').length > 0 && (
+                        <div style={{ maxHeight: '120px', overflowY: 'auto' }} className="border rounded mb-1 p-1">
+                          {getFieldItems('userError').map(([id, item]) => (
+                            <div key={id} className="d-flex justify-content-between align-items-center py-1 px-1">
+                              <span className="small">{item.name}</span>
+                              <button type="button" className="btn btn-sm btn-outline-danger py-0 px-1" style={{ fontSize: '0.65rem', lineHeight: 1 }} onClick={() => deleteItem('userError', id)}>&times;</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="input-group">
+                        <input type="text" className="form-control" placeholder="New user name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmAddNew(); } }} autoFocus />
+                        <button type="button" className="btn btn-success" onClick={confirmAddNew} disabled={!newItemName.trim()}>OK</button>
+                        <button type="button" className="btn btn-outline-secondary" onClick={() => setAddNewField(null)}>X</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="input-group">
+                      <select className="form-select" value={form.user_error_id} onChange={(e) => handleChange('user_error_id', e.target.value)}>
+                        <option value="">Select user...</option>
+                        {Object.entries(userReprints).filter(([, u]) => u.type === 1).map(([id, u]) => (<option key={id} value={id}>{u.name}</option>))}
+                      </select>
+                      <button type="button" className="btn btn-outline-secondary" onClick={() => { setAddNewField('userError'); setNewItemName(''); }}>+</button>
+                    </div>
+                  )}
                 </div>
                 <div className="col-md-6">
                   <label className="form-label">Reason Error</label>
                   <input type="text" className="form-control" value={form.reason_error} onChange={(e) => handleChange('reason_error', e.target.value)} />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label">Note (Picker/Cuter)</label>
-                  <select className="form-select" value={form.user_note} onChange={(e) => handleChange('user_note', e.target.value)}>
-                    <option value="">Select user...</option>
-                    {noteUsers.map(([id, u]) => (
-                      <option key={id} value={id}>{u.name}</option>
-                    ))}
-                  </select>
+                  <label className="form-label">Note</label>
+                  {addNewField === 'userNote' ? (
+                    <div>
+                      {getFieldItems('userNote').length > 0 && (
+                        <div style={{ maxHeight: '120px', overflowY: 'auto' }} className="border rounded mb-1 p-1">
+                          {getFieldItems('userNote').map(([id, item]) => (
+                            <div key={id} className="d-flex justify-content-between align-items-center py-1 px-1">
+                              <span className="small">{item.name}</span>
+                              <button type="button" className="btn btn-sm btn-outline-danger py-0 px-1" style={{ fontSize: '0.65rem', lineHeight: 1 }} onClick={() => deleteItem('userNote', id)}>&times;</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="input-group">
+                        <input type="text" className="form-control" placeholder="New user name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmAddNew(); } }} autoFocus />
+                        <button type="button" className="btn btn-success" onClick={confirmAddNew} disabled={!newItemName.trim()}>OK</button>
+                        <button type="button" className="btn btn-outline-secondary" onClick={() => setAddNewField(null)}>X</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="input-group">
+                      <select className="form-select" value={form.user_note} onChange={(e) => handleChange('user_note', e.target.value)}>
+                        <option value="">Select user...</option>
+                        {Object.entries(userReprints).filter(([, u]) => u.type === 2).map(([id, u]) => (<option key={id} value={id}>{u.name}</option>))}
+                      </select>
+                      <button type="button" className="btn btn-outline-secondary" onClick={() => { setAddNewField('userNote'); setNewItemName(''); }}>+</button>
+                    </div>
+                  )}
                 </div>
                 <div className="col-md-6">
                   <label className="form-label">Status</label>

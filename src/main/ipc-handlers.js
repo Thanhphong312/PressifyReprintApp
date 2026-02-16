@@ -158,6 +158,25 @@ function registerHandlers() {
     await apiClient.del(`/api/size-reprints/${id}`);
   });
 
+  // ─── User Reprints ───
+
+  ipcMain.handle('db:userReprints:getAll', async () => {
+    return apiClient.get('/api/user-reprints');
+  });
+
+  ipcMain.handle('db:userReprints:create', async (_, data) => {
+    const result = await apiClient.post('/api/user-reprints', data);
+    return result.id;
+  });
+
+  ipcMain.handle('db:userReprints:update', async (_, id, data) => {
+    await apiClient.put(`/api/user-reprints/${id}`, data);
+  });
+
+  ipcMain.handle('db:userReprints:delete', async (_, id) => {
+    await apiClient.del(`/api/user-reprints/${id}`);
+  });
+
   // ─── Reason Reprints ───
 
   ipcMain.handle('db:reasons:getAll', async () => {

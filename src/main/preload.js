@@ -63,6 +63,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       update: (id, data) => ipcRenderer.invoke('db:sizeReprints:update', id, data),
       delete: (id) => ipcRenderer.invoke('db:sizeReprints:delete', id),
     },
+    userReprints: {
+      getAll: () => ipcRenderer.invoke('db:userReprints:getAll'),
+      create: (data) => ipcRenderer.invoke('db:userReprints:create', data),
+      update: (id, data) => ipcRenderer.invoke('db:userReprints:update', id, data),
+      delete: (id) => ipcRenderer.invoke('db:userReprints:delete', id),
+    },
     reasons: {
       getAll: () => ipcRenderer.invoke('db:reasons:getAll'),
       create: (data) => ipcRenderer.invoke('db:reasons:create', data),

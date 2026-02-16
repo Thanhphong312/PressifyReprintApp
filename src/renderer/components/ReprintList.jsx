@@ -146,6 +146,7 @@ export default function ReprintList() {
   const [productReprints, setProductReprints] = useState({});
   const [colorReprints, setColorReprints] = useState({});
   const [sizeReprints, setSizeReprints] = useState({});
+  const [userReprints, setUserReprints] = useState({});
   const [showForm, setShowForm] = useState(false);
   const [editData, setEditData] = useState(null);
   const [timelineId, setTimelineId] = useState(null);
@@ -163,13 +164,14 @@ export default function ReprintList() {
   });
 
   async function loadData() {
-    const [r, u, re, pr, cr, sr] = await Promise.all([
+    const [r, u, re, pr, cr, sr, ur] = await Promise.all([
       window.electronAPI.db.reprints.getAll(),
       window.electronAPI.db.users.getAll(),
       window.electronAPI.db.reasons.getAll(),
       window.electronAPI.db.productReprints.getAll(),
       window.electronAPI.db.colorReprints.getAll(),
       window.electronAPI.db.sizeReprints.getAll(),
+      window.electronAPI.db.userReprints.getAll(),
     ]);
     setReprints(r);
     setUsers(u);
@@ -177,6 +179,7 @@ export default function ReprintList() {
     setProductReprints(pr);
     setColorReprints(cr);
     setSizeReprints(sr);
+    setUserReprints(ur);
   }
 
   useEffect(() => { loadData(); }, []);
@@ -215,21 +218,26 @@ export default function ReprintList() {
     product: { label: 'Loai Ao', field: 'product_reprint_id', api: window.electronAPI.db.productReprints },
     color: { label: 'Color', field: 'color_reprint_id', api: window.electronAPI.db.colorReprints },
     size: { label: 'Size', field: 'size_reprint_id', api: window.electronAPI.db.sizeReprints },
+    userReprint: { label: 'User', field: null, api: window.electronAPI.db.userReprints },
   };
 
   const confirmAddNew = useCallback(async () => {
     if (!newItemName.trim() || !addNewModal) return;
-    const { type, reprintId } = addNewModal;
+    const { type, reprintId, field: modalField } = addNewModal;
     const cfg = ADD_NEW_CONFIG[type];
     try {
-      const res = await cfg.api.create({ name: newItemName.trim() });
+      const createData = { name: newItemName.trim() };
+      if (type === 'userReprint' && modalField === 'user_error_id') createData.type = 1;
+      if (type === 'userReprint' && modalField === 'user_note') createData.type = 2;
+      const res = await cfg.api.create(createData);
       const newId = res.id || res;
-      if (reprintId) {
-        await window.electronAPI.db.reprints.update(reprintId, { [cfg.field]: newId });
+      const updateField = modalField || cfg.field;
+      if (reprintId && updateField) {
+        await window.electronAPI.db.reprints.update(reprintId, { [updateField]: newId });
         await window.electronAPI.db.timelines.create({
           user_id: currentUser.uid,
           reprint_id: reprintId,
-          note: `"${cfg.field}" updated by ${currentUser.name}`,
+          note: `"${updateField}" updated by ${currentUser.name}`,
         });
       }
       await loadData();
@@ -239,6 +247,31 @@ export default function ReprintList() {
     setAddNewModal(null);
     setNewItemName('');
   }, [currentUser, addNewModal, newItemName]);
+
+  function getModalItems() {
+    if (!addNewModal) return [];
+    const { type, field } = addNewModal;
+    switch (type) {
+      case 'reason': return Object.entries(reasons);
+      case 'product': return Object.entries(productReprints);
+      case 'color': return Object.entries(colorReprints);
+      case 'size': return Object.entries(sizeReprints);
+      case 'userReprint':
+        return Object.entries(userReprints).filter(([, u]) => field === 'user_error_id' ? u.type === 1 : u.type === 2);
+      default: return [];
+    }
+  }
+
+  const deleteModalItem = useCallback(async (itemId) => {
+    if (!addNewModal) return;
+    const cfg = ADD_NEW_CONFIG[addNewModal.type];
+    try {
+      await cfg.api.delete(itemId);
+      await loadData();
+    } catch (err) {
+      alert('Error deleting: ' + err.message);
+    }
+  }, [addNewModal]);
 
   function handleAdd() {
     setEditData(null);
@@ -309,12 +342,12 @@ export default function ReprintList() {
     .filter(([, u]) => u.role === 'support')
     .map(([id, u]) => ({ value: id, label: u.name }));
 
-  const errorUserOpts = Object.entries(users)
-    .filter(([, u]) => u.role === 'presser')
+  const errorUserOpts = Object.entries(userReprints)
+    .filter(([, u]) => u.type === 1)
     .map(([id, u]) => ({ value: id, label: u.name }));
 
-  const noteUserOpts = Object.entries(users)
-    .filter(([, u]) => ['cuter', 'picker'].includes(u.role))
+  const noteUserOpts = Object.entries(userReprints)
+    .filter(([, u]) => u.type === 2)
     .map(([id, u]) => ({ value: id, label: u.name }));
 
   const reasonOpts = Object.entries(reasons)
@@ -505,16 +538,18 @@ export default function ReprintList() {
                       <EditableSelect
                         value={r.user_error_id}
                         options={errorUserOpts}
-                        displayValue={users[r.user_error_id]?.name}
+                        displayValue={userReprints[r.user_error_id]?.name}
                         onSave={(v) => saveField(r.id, 'user_error_id', v)}
+                        onAddNew={() => { setAddNewModal({ type: 'userReprint', reprintId: r.id, field: 'user_error_id' }); setNewItemName(''); }}
                       />
                     </td>
                     <td className="cell-error">
                       <EditableSelect
                         value={r.user_note}
                         options={noteUserOpts}
-                        displayValue={users[r.user_note]?.name}
+                        displayValue={userReprints[r.user_note]?.name}
                         onSave={(v) => saveField(r.id, 'user_note', v)}
+                        onAddNew={() => { setAddNewModal({ type: 'userReprint', reprintId: r.id, field: 'user_note' }); setNewItemName(''); }}
                       />
                     </td>
 
@@ -563,23 +598,32 @@ export default function ReprintList() {
           <div className="modal-dialog modal-sm modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header py-2">
-                <h6 className="modal-title">Add New {ADD_NEW_CONFIG[addNewModal.type]?.label}</h6>
+                <h6 className="modal-title">{ADD_NEW_CONFIG[addNewModal.type]?.label}</h6>
                 <button className="btn-close" onClick={() => setAddNewModal(null)}></button>
               </div>
               <div className="modal-body py-2">
-                <input
-                  type="text"
-                  className="form-control form-control-sm"
-                  placeholder="Name"
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') confirmAddNew(); }}
-                  autoFocus
-                />
-              </div>
-              <div className="modal-footer py-2">
-                <button className="btn btn-sm btn-secondary" onClick={() => setAddNewModal(null)}>Cancel</button>
-                <button className="btn btn-sm btn-primary" onClick={confirmAddNew} disabled={!newItemName.trim()}>Add</button>
+                {getModalItems().length > 0 && (
+                  <div style={{ maxHeight: '180px', overflowY: 'auto' }} className="mb-2">
+                    {getModalItems().map(([id, item]) => (
+                      <div key={id} className="d-flex justify-content-between align-items-center py-1 px-1 border-bottom">
+                        <span className="small">{item.name}</span>
+                        <button className="btn btn-sm btn-outline-danger py-0 px-1 ms-2" style={{ fontSize: '0.7rem', lineHeight: 1 }} onClick={() => deleteModalItem(id)} title="Delete">&times;</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="input-group input-group-sm">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Add new..."
+                    value={newItemName}
+                    onChange={(e) => setNewItemName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') confirmAddNew(); }}
+                    autoFocus
+                  />
+                  <button className="btn btn-primary" onClick={confirmAddNew} disabled={!newItemName.trim()}>Add</button>
+                </div>
               </div>
             </div>
           </div>

@@ -84,7 +84,8 @@ export default function ReprintForm({ editData, onClose }) {
   }, [editData]);
 
   const supportUsers = Object.entries(users).filter(([, u]) => u.role === 'support');
-  const allStaffUsers = Object.entries(users);
+  const errorUsers = Object.entries(users).filter(([, u]) => u.role === 'presser');
+  const noteUsers = Object.entries(users).filter(([, u]) => ['cuter', 'picker'].includes(u.role));
 
   function handleChange(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -265,7 +266,7 @@ export default function ReprintForm({ editData, onClose }) {
                   <label className="form-label">User Error</label>
                   <select className="form-select" value={form.user_error_id} onChange={(e) => handleChange('user_error_id', e.target.value)}>
                     <option value="">Select user...</option>
-                    {allStaffUsers.map(([id, u]) => (
+                    {errorUsers.map(([id, u]) => (
                       <option key={id} value={id}>{u.name}</option>
                     ))}
                   </select>
@@ -274,9 +275,14 @@ export default function ReprintForm({ editData, onClose }) {
                   <label className="form-label">Reason Error</label>
                   <input type="text" className="form-control" value={form.reason_error} onChange={(e) => handleChange('reason_error', e.target.value)} />
                 </div>
-                <div className="col-md-12">
-                  <label className="form-label">User Note</label>
-                  <input type="text" className="form-control" value={form.user_note} onChange={(e) => handleChange('user_note', e.target.value)} />
+                <div className="col-md-6">
+                  <label className="form-label">Note (Picker/Cuter)</label>
+                  <select className="form-select" value={form.user_note} onChange={(e) => handleChange('user_note', e.target.value)}>
+                    <option value="">Select user...</option>
+                    {noteUsers.map(([id, u]) => (
+                      <option key={id} value={id}>{u.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="col-md-6">
                   <label className="form-label">Status</label>

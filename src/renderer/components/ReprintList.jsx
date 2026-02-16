@@ -309,7 +309,12 @@ export default function ReprintList() {
     .filter(([, u]) => u.role === 'support')
     .map(([id, u]) => ({ value: id, label: u.name }));
 
-  const allUserOpts = Object.entries(users)
+  const errorUserOpts = Object.entries(users)
+    .filter(([, u]) => u.role === 'presser')
+    .map(([id, u]) => ({ value: id, label: u.name }));
+
+  const noteUserOpts = Object.entries(users)
+    .filter(([, u]) => ['cuter', 'picker'].includes(u.role))
     .map(([id, u]) => ({ value: id, label: u.name }));
 
   const reasonOpts = Object.entries(reasons)
@@ -499,13 +504,18 @@ export default function ReprintList() {
                     <td className="cell-error">
                       <EditableSelect
                         value={r.user_error_id}
-                        options={allUserOpts}
+                        options={errorUserOpts}
                         displayValue={users[r.user_error_id]?.name}
                         onSave={(v) => saveField(r.id, 'user_error_id', v)}
                       />
                     </td>
                     <td className="cell-error">
-                      <EditableText value={r.user_note} placeholder="Note" onSave={(v) => saveField(r.id, 'user_note', v)} />
+                      <EditableSelect
+                        value={r.user_note}
+                        options={noteUserOpts}
+                        displayValue={users[r.user_note]?.name}
+                        onSave={(v) => saveField(r.id, 'user_note', v)}
+                      />
                     </td>
 
                     {/* ── Status ── */}

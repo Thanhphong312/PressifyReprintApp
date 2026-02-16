@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Pressify Reprint is an Electron desktop application (React frontend) for managing print reprint operations. It communicates with a Laravel Vanguard API backend (`D:\xampp\htdocs\LaravelVanguard`) via REST API using Sanctum token authentication. The app has role-based access control for 11 roles: admin, user, seller, supplier, staff, support, designer, printer, cuter, picker, processer.
+Pressify Reprint is an Electron desktop application (React frontend) for managing print reprint operations. It communicates with a Laravel Vanguard API backend (`D:\xampp\htdocs\LaravelVanguard`) via REST API using Sanctum token authentication. The app has role-based access control for 11 roles: admin, user, seller, supplier, staff, support, designer, printer, cuter, picker, presser.
 
 ## Commands
 

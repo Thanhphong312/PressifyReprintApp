@@ -179,7 +179,27 @@ export default function ReprintList() {
     setUserReprints(ur);
   }
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    async function init() {
+      await loadData();
+      // Auto-create a blank reprint row on first load
+      const u = await window.electronAPI.db.users.getAll();
+      const firstSupport = Object.entries(u)
+        .filter(([, usr]) => usr.role === 'support')
+        .map(([id]) => id)[0] || null;
+      const newId = await window.electronAPI.db.reprints.create({
+        support_id: firstSupport,
+        status: 'not_yet',
+      });
+      await window.electronAPI.db.timelines.create({
+        user_id: currentUser.uid,
+        reprint_id: newId,
+        note: `Reprint created by ${currentUser.name}`,
+      });
+      await loadData();
+    }
+    init();
+  }, []);
 
   // ─── Inline save ───
   const saveField = useCallback(async (id, field, value) => {

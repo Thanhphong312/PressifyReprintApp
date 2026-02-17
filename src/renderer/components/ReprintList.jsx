@@ -271,23 +271,11 @@ export default function ReprintList() {
   }, [addNewModal]);
 
   async function handleAdd() {
-    const firstSupport = supportUserOpts[0]?.value || '';
+    const firstSupport = supportUserOpts[0]?.value || null;
     try {
       const newId = await window.electronAPI.db.reprints.create({
         support_id: firstSupport,
-        order_id: '',
-        reason_reprint_id: '',
-        note: '',
-        product_reprint_id: '',
-        color_reprint_id: '',
-        size_reprint_id: '',
-        brand: '',
-        machine_number: '',
-        user_error_id: '',
-        reason_error: '',
-        user_note: '',
         status: 'not_yet',
-        finished_date: '',
       });
       await window.electronAPI.db.timelines.create({
         user_id: currentUser.uid,

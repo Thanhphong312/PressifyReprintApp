@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import ReprintForm from './ReprintForm';
 import Timeline from './Timeline';
 
 const STATUS_LABELS = {
@@ -147,8 +146,6 @@ export default function ReprintList() {
   const [colorReprints, setColorReprints] = useState({});
   const [sizeReprints, setSizeReprints] = useState({});
   const [userReprints, setUserReprints] = useState({});
-  const [showForm, setShowForm] = useState(false);
-  const [editData, setEditData] = useState(null);
   const [timelineId, setTimelineId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -273,9 +270,34 @@ export default function ReprintList() {
     }
   }, [addNewModal]);
 
-  function handleAdd() {
-    setEditData(null);
-    setShowForm(true);
+  async function handleAdd() {
+    const firstSupport = supportUserOpts[0]?.value || '';
+    try {
+      const newId = await window.electronAPI.db.reprints.create({
+        support_id: firstSupport,
+        order_id: '',
+        reason_reprint_id: '',
+        note: '',
+        product_reprint_id: '',
+        color_reprint_id: '',
+        size_reprint_id: '',
+        brand: '',
+        machine_number: '',
+        user_error_id: '',
+        reason_error: '',
+        user_note: '',
+        status: 'not_yet',
+        finished_date: '',
+      });
+      await window.electronAPI.db.timelines.create({
+        user_id: currentUser.uid,
+        reprint_id: newId,
+        note: `Reprint created by ${currentUser.name}`,
+      });
+      await loadData();
+    } catch (err) {
+      alert('Error creating reprint: ' + err.message);
+    }
   }
 
   async function handleDelete(id) {
@@ -288,12 +310,6 @@ export default function ReprintList() {
       });
       await loadData();
     }
-  }
-
-  function handleFormClose(saved) {
-    setShowForm(false);
-    setEditData(null);
-    if (saved) loadData();
   }
 
   // ─── Filter + sort ───
@@ -590,7 +606,6 @@ export default function ReprintList() {
         </div>
       </div>
 
-      {showForm && <ReprintForm editData={editData} onClose={handleFormClose} />}
       {timelineId && <Timeline reprintId={timelineId} onClose={() => setTimelineId(null)} />}
 
       {addNewModal && (

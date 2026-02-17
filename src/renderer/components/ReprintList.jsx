@@ -316,11 +316,6 @@ export default function ReprintList() {
   async function handleDelete(id) {
     if (confirm('Are you sure you want to delete this reprint?')) {
       await window.electronAPI.db.reprints.delete(id);
-      await window.electronAPI.db.timelines.create({
-        user_id: currentUser.uid,
-        reprint_id: id,
-        note: `Reprint deleted by ${currentUser.name}`,
-      });
       await loadData();
     }
   }

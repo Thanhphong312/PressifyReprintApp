@@ -181,21 +181,26 @@ export default function ReprintList() {
 
   useEffect(() => {
     async function init() {
-      await loadData();
-      // Auto-create a blank reprint row on first load
-      const u = await window.electronAPI.db.users.getAll();
-      const firstSupport = Object.entries(u)
-        .filter(([, usr]) => usr.role === 'support')
-        .map(([id]) => id)[0] || null;
-      const newId = await window.electronAPI.db.reprints.create({
-        support_id: firstSupport,
-        status: 'not_yet',
-      });
-      await window.electronAPI.db.timelines.create({
-        user_id: currentUser.uid,
-        reprint_id: newId,
-        note: `Reprint created by ${currentUser.name}`,
-      });
+      const [r, u] = await Promise.all([
+        window.electronAPI.db.reprints.getAll(),
+        window.electronAPI.db.users.getAll(),
+      ]);
+      // Only auto-create if no existing reprint has an empty order_id
+      const hasBlank = Object.values(r).some((rep) => !rep.order_id);
+      if (!hasBlank) {
+        const firstSupport = Object.entries(u)
+          .filter(([, usr]) => usr.role === 'support')
+          .map(([id]) => id)[0] || null;
+        const newId = await window.electronAPI.db.reprints.create({
+          support_id: firstSupport,
+          status: 'not_yet',
+        });
+        await window.electronAPI.db.timelines.create({
+          user_id: currentUser.uid,
+          reprint_id: newId,
+          note: `Reprint created by ${currentUser.name}`,
+        });
+      }
       await loadData();
     }
     init();

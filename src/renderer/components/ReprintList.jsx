@@ -334,7 +334,7 @@ export default function ReprintList() {
       }
       return true;
     })
-    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    .sort((a, b) => Number(a.id) - Number(b.id));
 
   // ─── Group by date (created_at is already America/Chicago from API) ───
   function getDateKey(ts) {

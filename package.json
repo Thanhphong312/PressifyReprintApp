@@ -1,7 +1,7 @@
 {
   "name": "pressify-reprint-app",
   "productName": "Pressify Reprint",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "description": "Pressify Reprint Management Desktop App",
   "author": "Pressify",
   "main": ".webpack/main",

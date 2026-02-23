@@ -64,7 +64,16 @@ function EditableSelect({ value, options, onSave, className, displayValue, onAdd
   const [editing, setEditing] = useState(false);
   const selectRef = useRef(null);
 
-  useEffect(() => { if (editing && selectRef.current) selectRef.current.focus(); }, [editing]);
+  useEffect(() => {
+    if (editing && selectRef.current) {
+      selectRef.current.focus();
+      requestAnimationFrame(() => {
+        if (selectRef.current) {
+          try { selectRef.current.showPicker(); } catch { /* fallback: already focused */ }
+        }
+      });
+    }
+  }, [editing]);
 
   function commit(newVal) {
     if (newVal === '__add_new__') {
@@ -149,6 +158,7 @@ export default function ReprintList() {
   const [timelineId, setTimelineId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [selectedIds, setSelectedIds] = useState(new Set());
   const [addNewModal, setAddNewModal] = useState(null); // { type, reprintId }
   const [newItemName, setNewItemName] = useState('');
   const [activeDate, setActiveDate] = useState(() => {
@@ -206,6 +216,18 @@ export default function ReprintList() {
     init();
   }, []);
 
+  function getChicagoNow() {
+    const now = new Date();
+    const chi = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+    const y = chi.getFullYear();
+    const mo = String(chi.getMonth() + 1).padStart(2, '0');
+    const d = String(chi.getDate()).padStart(2, '0');
+    const h = String(chi.getHours()).padStart(2, '0');
+    const mi = String(chi.getMinutes()).padStart(2, '0');
+    const s = String(chi.getSeconds()).padStart(2, '0');
+    return `${y}-${mo}-${d} ${h}:${mi}:${s}`;
+  }
+
   // ─── Inline save ───
   const saveField = useCallback(async (id, field, value) => {
     try {
@@ -223,7 +245,11 @@ export default function ReprintList() {
 
   const saveStatus = useCallback(async (id, newStatus) => {
     try {
-      await window.electronAPI.db.reprints.update(id, { status: newStatus });
+      const updateData = { status: newStatus };
+      if (newStatus === 'completed') {
+        updateData.finished_date = getChicagoNow();
+      }
+      await window.electronAPI.db.reprints.update(id, updateData);
       await window.electronAPI.db.timelines.create({
         user_id: currentUser.uid,
         reprint_id: id,
@@ -320,6 +346,34 @@ export default function ReprintList() {
     }
   }
 
+  async function handleCompleteSelected() {
+    if (selectedIds.size === 0) return;
+    const finishedDate = getChicagoNow();
+    try {
+      for (const id of selectedIds) {
+        await window.electronAPI.db.reprints.update(id, { status: 'completed', finished_date: finishedDate });
+        await window.electronAPI.db.timelines.create({
+          user_id: currentUser.uid,
+          reprint_id: id,
+          note: `Status changed to "completed" by ${currentUser.name}`,
+        });
+      }
+      setSelectedIds(new Set());
+      await loadData();
+    } catch (err) {
+      alert('Error completing reprints: ' + err.message);
+    }
+  }
+
+  function toggleSelect(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   // ─── Filter + sort ───
   const reprintList = Object.entries(reprints)
     .map(([id, data]) => ({ id, ...data }))
@@ -400,7 +454,14 @@ export default function ReprintList() {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h4 className="mb-0">Reprints</h4>
-        <button className="btn btn-primary" onClick={handleAdd}>+ Add Reprint</button>
+        <div className="d-flex gap-2">
+          {selectedIds.size > 0 && (
+            <button className="btn btn-success" onClick={handleCompleteSelected}>
+              Complete Selected ({selectedIds.size})
+            </button>
+          )}
+          <button className="btn btn-primary" onClick={handleAdd}>+ Add Reprint</button>
+        </div>
       </div>
 
       <div className="card mb-3">
@@ -455,9 +516,22 @@ export default function ReprintList() {
           <table className="table table-hover table-sm table-bordered reprint-table mb-0">
             <thead className="table-dark">
               <tr>
+                <th rowSpan="2" className="align-middle text-center col-fixed-xs">
+                  <input
+                    type="checkbox"
+                    checked={filteredByDate.length > 0 && filteredByDate.every((r) => selectedIds.has(r.id))}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedIds(new Set(filteredByDate.map((r) => r.id)));
+                      } else {
+                        setSelectedIds(new Set());
+                      }
+                    }}
+                  />
+                </th>
                 <th rowSpan="2" className="align-middle text-center col-fixed-xs">#</th>
                 <th colSpan="3" className="text-center col-group-order">Order</th>
-                <th colSpan="6" className="text-center col-group-product">Product</th>
+                <th colSpan="5" className="text-center col-group-product">Product</th>
                 <th colSpan="3" className="text-center col-group-error">Error</th>
                 <th colSpan="2" className="text-center col-group-status">Status</th>
                 <th rowSpan="2" className="align-middle text-center">Actions</th>
@@ -471,7 +545,6 @@ export default function ReprintList() {
                 <th className="col-group-product">Size</th>
                 <th className="col-group-product">Color</th>
                 <th className="col-group-product">Hang Ao</th>
-                <th className="col-group-product">Machine #</th>
                 <th className="col-group-error">Ly Do Loi</th>
                 <th className="col-group-error">Ai Lam Sai</th>
                 <th className="col-group-error">Note</th>
@@ -487,6 +560,9 @@ export default function ReprintList() {
               ) : (
                 filteredByDate.map((r, idx) => (
                   <tr key={r.id}>
+                    <td className="text-center">
+                      <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
+                    </td>
                     <td className="text-center text-muted">{idx + 1}</td>
 
                     {/* ── Order ── */}
@@ -549,9 +625,6 @@ export default function ReprintList() {
                     </td>
                     <td className="cell-product">
                       <EditableText value={r.brand} placeholder="Hang ao" onSave={(v) => saveField(r.id, 'brand', v)} />
-                    </td>
-                    <td className="cell-product">
-                      <EditableText value={r.machine_number} placeholder="Machine #" onSave={(v) => saveField(r.id, 'machine_number', v)} />
                     </td>
 
                     {/* ── Error ── */}

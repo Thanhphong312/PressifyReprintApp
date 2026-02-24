@@ -163,6 +163,7 @@ export default function ReprintList() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [addNewModal, setAddNewModal] = useState(null); // { type, reprintId }
+  const [copyMsg, setCopyMsg] = useState(null);
   const [newItemName, setNewItemName] = useState('');
   const [activeDate, setActiveDate] = useState(() => {
     const now = new Date();
@@ -476,13 +477,32 @@ export default function ReprintList() {
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="mb-0">Reprints</h4>
-        <div className="d-flex gap-2">
-          {selectedIds.size > 0 && (
-            <button className="btn btn-success" onClick={handleCompleteSelected}>
+        <div className="d-flex gap-2 align-items-center">
+          <h4 className="mb-0">Reprints</h4>
+          {selectedIds.size > 0 && (<>
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => {
+              const orders = [];
+              selectedIds.forEach((id) => {
+                const r = reprints[id];
+                if (r && r.order_id && r.order_id.trim()) orders.push(r.order_id);
+              });
+              if (orders.length > 0) {
+                navigator.clipboard.writeText(orders.join('\n'));
+                setCopyMsg(`Copied ${orders.length} order ID(s)`);
+                setTimeout(() => setCopyMsg(null), 2000);
+              } else {
+                setCopyMsg('No order IDs to copy');
+                setTimeout(() => setCopyMsg(null), 2000);
+              }
+            }}>
+              Copy Order IDs ({selectedIds.size})
+            </button>
+            <button className="btn btn-sm btn-success" onClick={handleCompleteSelected}>
               Complete Selected ({selectedIds.size})
             </button>
-          )}
+          </>)}
+        </div>
+        <div className="d-flex gap-2">
           <button className="btn btn-primary" onClick={handleAdd}>+ Add Reprint</button>
         </div>
       </div>
@@ -587,8 +607,23 @@ export default function ReprintList() {
                   <td colSpan="16" className="text-center text-muted py-4">No reprints found</td>
                 </tr>
               ) : (
-                filteredByDate.map((r, idx) => (
-                  <tr key={r.id}>
+                (() => {
+                  // Check duplicates across ALL reprints in database
+                  const orderDateCount = {};
+                  Object.entries(reprints).forEach(([id, r]) => {
+                    const oid = (r.order_id || '').trim();
+                    if (!oid) return;
+                    const key = `${(r.created_at || '').substring(0, 10)}||${oid}`;
+                    orderDateCount[key] = (orderDateCount[key] || 0) + 1;
+                  });
+                  return filteredByDate.map((r, idx) => {
+                  const oid = (r.order_id || '').trim();
+                  const isDup = oid && orderDateCount[`${(r.created_at || '').substring(0, 10)}||${oid}`] > 1;
+                  return (
+                  <tr key={r.id}
+                    className={isDup ? 'row-duplicate' : selectedIds.has(r.id) ? 'row-selected' : ''}
+                    onClick={(e) => { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') toggleSelect(r.id); }}
+                  >
                     <td className="text-center">
                       <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
                     </td>
@@ -604,12 +639,24 @@ export default function ReprintList() {
                       />
                     </td>
                     <td className="cell-order">
-                      <EditableText
-                        value={r.order_id}
-                        className="fw-semibold"
-                        placeholder="Order ID"
-                        onSave={(v) => saveField(r.id, 'order_id', extractOrderId(v))}
-                      />
+                      <div className="d-flex align-items-center gap-1">
+                        <EditableText
+                          value={r.order_id}
+                          className="fw-semibold"
+                          placeholder="Order ID"
+                          onSave={(v) => saveField(r.id, 'order_id', extractOrderId(v))}
+                        />
+                        {r.order_id && (
+                          <button
+                            className="btn btn-sm p-0 border-0 text-muted"
+                            style={{ fontSize: '0.7rem', lineHeight: 1 }}
+                            title="Copy Order ID"
+                            onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(r.order_id); setCopyMsg('Copied: ' + r.order_id); setTimeout(() => setCopyMsg(null), 2000); }}
+                          >
+                            <i className="bi bi-clipboard"></i>
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="cell-order">
                       <EditableSelect
@@ -720,12 +767,20 @@ export default function ReprintList() {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                });
+                })()
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {copyMsg && (
+        <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999 }}>
+          <div className="alert alert-success py-2 px-3 mb-0 shadow">{copyMsg}</div>
+        </div>
+      )}
 
       {timelineId && <Timeline reprintId={timelineId} onClose={() => setTimelineId(null)} />}
 

@@ -87,6 +87,14 @@
 .reprint-table tbody tr:hover .cell-error { background-color: #f5e0ec; }
 .reprint-table tbody tr:hover .cell-status { background-color: #f5f5e0; }
 
+/* Duplicate order_id highlight */
+.reprint-table tbody tr.row-duplicate td { background-color: #f0ad4e !important; }
+.reprint-table tbody tr.row-duplicate:hover td { background-color: #ec971f !important; }
+
+/* Selected row highlight */
+.reprint-table tbody tr.row-selected td { background-color: #e8f0fe !important; }
+.reprint-table tbody tr.row-selected:hover td { background-color: #d0e1fd !important; }
+
 .reprint-table td {
   white-space: nowrap;
   padding: 0.35rem 0.5rem !important;
@@ -101,6 +109,7 @@
   padding: 2px 4px;
   border-radius: 3px;
   min-height: 22px;
+  min-width: 60px;
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -117,7 +126,7 @@
   font-size: 0.8rem !important;
   padding: 1px 4px !important;
   height: 26px !important;
-  min-width: 80px;
+  min-width: 150px;
 }
 
 select.inline-input {

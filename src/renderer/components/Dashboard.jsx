@@ -93,7 +93,8 @@ export default function Dashboard() {
   // Reason pie chart with % and total
   const byReason = {};
   reprintArr.forEach((r) => {
-    const name = reasons[r.reason_reprint_id]?.name || 'Unknown';
+    if (!r.reason_reprint_id || !reasons[r.reason_reprint_id]) return;
+    const name = reasons[r.reason_reprint_id].name;
     byReason[name] = (byReason[name] || 0) + 1;
   });
 
@@ -127,7 +128,8 @@ export default function Dashboard() {
 
   const bySupport = {};
   reprintArr.forEach((r) => {
-    const name = users[r.support_id]?.name || 'Unknown';
+    if (!r.support_id || !users[r.support_id]) return;
+    const name = users[r.support_id].name;
     bySupport[name] = (bySupport[name] || 0) + 1;
   });
 

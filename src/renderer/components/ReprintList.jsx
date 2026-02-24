@@ -155,10 +155,13 @@ export default function ReprintList() {
   const [colorReprints, setColorReprints] = useState({});
   const [sizeReprints, setSizeReprints] = useState({});
   const [userReprints, setUserReprints] = useState({});
+  const [reasonErrors, setReasonErrors] = useState({});
   const [timelineId, setTimelineId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [addNewModal, setAddNewModal] = useState(null); // { type, reprintId }
   const [newItemName, setNewItemName] = useState('');
   const [activeDate, setActiveDate] = useState(() => {
@@ -171,7 +174,7 @@ export default function ReprintList() {
   });
 
   async function loadData() {
-    const [r, u, re, pr, cr, sr, ur] = await Promise.all([
+    const [r, u, re, pr, cr, sr, ur, rErr] = await Promise.all([
       window.electronAPI.db.reprints.getAll(),
       window.electronAPI.db.users.getAll(),
       window.electronAPI.db.reasons.getAll(),
@@ -179,6 +182,7 @@ export default function ReprintList() {
       window.electronAPI.db.colorReprints.getAll(),
       window.electronAPI.db.sizeReprints.getAll(),
       window.electronAPI.db.userReprints.getAll(),
+      window.electronAPI.db.reasonErrors.getAll(),
     ]);
     setReprints(r);
     setUsers(u);
@@ -187,6 +191,7 @@ export default function ReprintList() {
     setColorReprints(cr);
     setSizeReprints(sr);
     setUserReprints(ur);
+    setReasonErrors(rErr);
   }
 
   useEffect(() => {
@@ -267,6 +272,7 @@ export default function ReprintList() {
     color: { label: 'Color', field: 'color_reprint_id', api: window.electronAPI.db.colorReprints },
     size: { label: 'Size', field: 'size_reprint_id', api: window.electronAPI.db.sizeReprints },
     userReprint: { label: 'User', field: null, api: window.electronAPI.db.userReprints },
+    reasonError: { label: 'Ly Do Loi', field: 'reason_error_id', api: window.electronAPI.db.reasonErrors },
   };
 
   const confirmAddNew = useCallback(async () => {
@@ -304,6 +310,7 @@ export default function ReprintList() {
       case 'product': return Object.entries(productReprints);
       case 'color': return Object.entries(colorReprints);
       case 'size': return Object.entries(sizeReprints);
+      case 'reasonError': return Object.entries(reasonErrors);
       case 'userReprint':
         return Object.entries(userReprints).filter(([, u]) => field === 'user_error_id' ? u.type === 1 : u.type === 2);
       default: return [];
@@ -379,6 +386,14 @@ export default function ReprintList() {
     .map(([id, data]) => ({ id, ...data }))
     .filter((r) => {
       if (statusFilter && r.status !== statusFilter) return false;
+      if (dateFrom) {
+        const created = (r.created_at || '').substring(0, 10);
+        if (created < dateFrom) return false;
+      }
+      if (dateTo) {
+        const created = (r.created_at || '').substring(0, 10);
+        if (created > dateTo) return false;
+      }
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
         const orderMatch = (r.order_id || '').toLowerCase().includes(term);
@@ -450,6 +465,14 @@ export default function ReprintList() {
     .map(([id, s]) => ({ value: id, label: s.name }))
     .sort((a, b) => a.label.localeCompare(b.label));
 
+  const reasonErrorOpts = Object.entries(reasonErrors)
+    .map(([id, r]) => ({ value: id, label: r.name }));
+
+  const brandOpts = [
+    { value: 'Circle', label: 'Circle' },
+    { value: 'Gildan', label: 'Gildan' },
+  ];
+
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3">
@@ -486,6 +509,12 @@ export default function ReprintList() {
               </select>
             </div>
             <div className="col-md-2">
+              <input type="date" className="form-control form-control-sm" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} title="From date" />
+            </div>
+            <div className="col-md-2">
+              <input type="date" className="form-control form-control-sm" value={dateTo} onChange={(e) => setDateTo(e.target.value)} title="To date" />
+            </div>
+            <div className="col-md-1">
               <span className="text-muted small">{filteredByDate.length} records</span>
             </div>
           </div>
@@ -624,12 +653,23 @@ export default function ReprintList() {
                       />
                     </td>
                     <td className="cell-product">
-                      <EditableText value={r.brand} placeholder="Hang ao" onSave={(v) => saveField(r.id, 'brand', v)} />
+                      <EditableSelect
+                        value={r.brand}
+                        options={brandOpts}
+                        displayValue={r.brand || null}
+                        onSave={(v) => saveField(r.id, 'brand', v)}
+                      />
                     </td>
 
                     {/* ── Error ── */}
                     <td className="cell-error">
-                      <EditableText value={r.reason_error} placeholder="Ly do loi" onSave={(v) => saveField(r.id, 'reason_error', v)} />
+                      <EditableSelect
+                        value={r.reason_error_id}
+                        options={reasonErrorOpts}
+                        displayValue={reasonErrors[r.reason_error_id]?.name}
+                        onSave={(v) => saveField(r.id, 'reason_error_id', v)}
+                        onAddNew={() => { setAddNewModal({ type: 'reasonError', reprintId: r.id }); setNewItemName(''); }}
+                      />
                     </td>
                     <td className="cell-error">
                       <EditableSelect

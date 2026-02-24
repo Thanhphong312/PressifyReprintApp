@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 const AuthContext = createContext(null);
 
 const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
+const SESSION_CHECK_INTERVAL = 60 * 1000; // check every minute
 
 export function useAuth() {
   return useContext(AuthContext);
@@ -13,6 +14,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [ssoEnabled, setSsoEnabled] = useState(false);
   const refreshTimerRef = useRef(null);
+  const sessionTimerRef = useRef(null);
 
   const clearSession = useCallback(() => {
     setCurrentUser(null);
@@ -20,6 +22,10 @@ export function AuthProvider({ children }) {
     if (refreshTimerRef.current) {
       clearInterval(refreshTimerRef.current);
       refreshTimerRef.current = null;
+    }
+    if (sessionTimerRef.current) {
+      clearInterval(sessionTimerRef.current);
+      sessionTimerRef.current = null;
     }
   }, []);
 
@@ -36,6 +42,18 @@ export function AuthProvider({ children }) {
         clearSession();
       }
     }, REFRESH_INTERVAL);
+  }, [clearSession]);
+
+  const startSessionTimer = useCallback(() => {
+    if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+    sessionTimerRef.current = setInterval(() => {
+      const loginTime = parseInt(localStorage.getItem('pressify_login_time') || '0', 10);
+      const lifetime = parseInt(localStorage.getItem('pressify_session_lifetime') || '2592000', 10);
+      if (loginTime && Date.now() - loginTime > lifetime * 1000) {
+        window.electronAPI.log('info', 'Session expired by lifetime setting');
+        clearSession();
+      }
+    }, SESSION_CHECK_INTERVAL);
   }, [clearSession]);
 
   // Startup: restore session + validate token
@@ -66,6 +84,12 @@ export function AuthProvider({ children }) {
           if (validation.valid) {
             setCurrentUser(userData);
             startRefreshTimer();
+            startSessionTimer();
+            // Fetch latest session lifetime
+            try {
+              const rs = await window.electronAPI.db.reprintSettings.get();
+              if (rs.session) localStorage.setItem('pressify_session_lifetime', String(rs.session));
+            } catch { /* ignore */ }
           } else {
             // Token invalid, clear session
             localStorage.removeItem('pressify_user');
@@ -87,11 +111,10 @@ export function AuthProvider({ children }) {
     restoreSession();
 
     return () => {
-      if (refreshTimerRef.current) {
-        clearInterval(refreshTimerRef.current);
-      }
+      if (refreshTimerRef.current) clearInterval(refreshTimerRef.current);
+      if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
     };
-  }, [startRefreshTimer]);
+  }, [startRefreshTimer, startSessionTimer]);
 
   async function login(username, password) {
     const result = await window.electronAPI.auth.login(username, password);
@@ -99,9 +122,17 @@ export function AuthProvider({ children }) {
     setCurrentUser(userData);
     localStorage.setItem('pressify_user', JSON.stringify(userData));
 
+    localStorage.setItem('pressify_login_time', String(Date.now()));
+
     if (result.sso) {
       setSsoEnabled(true);
       startRefreshTimer();
+      startSessionTimer();
+      // Fetch session lifetime from server
+      try {
+        const rs = await window.electronAPI.db.reprintSettings.get();
+        if (rs.session) localStorage.setItem('pressify_session_lifetime', String(rs.session));
+      } catch { /* ignore */ }
     }
 
     return userData;

@@ -177,6 +177,25 @@ function registerHandlers() {
     await apiClient.del(`/api/user-reprints/${id}`);
   });
 
+  // ─── Reason Errors (Ly Do Loi) ───
+
+  ipcMain.handle('db:reasonErrors:getAll', async () => {
+    return apiClient.get('/api/reason-errors');
+  });
+
+  ipcMain.handle('db:reasonErrors:create', async (_, data) => {
+    const result = await apiClient.post('/api/reason-errors', data);
+    return result.id;
+  });
+
+  ipcMain.handle('db:reasonErrors:update', async (_, id, data) => {
+    await apiClient.put(`/api/reason-errors/${id}`, data);
+  });
+
+  ipcMain.handle('db:reasonErrors:delete', async (_, id) => {
+    await apiClient.del(`/api/reason-errors/${id}`);
+  });
+
   // ─── Reason Reprints ───
 
   ipcMain.handle('db:reasons:getAll', async () => {
@@ -213,6 +232,16 @@ function registerHandlers() {
 
   ipcMain.handle('db:orderTypes:delete', async (_, id) => {
     await apiClient.del(`/api/order-types/${id}`);
+  });
+
+  // ─── Reprint Settings ───
+
+  ipcMain.handle('db:reprintSettings:get', async () => {
+    return apiClient.get('/api/reprint-settings');
+  });
+
+  ipcMain.handle('db:reprintSettings:save', async (_, data) => {
+    return apiClient.put('/api/reprint-settings', data);
   });
 
   // ─── Timelines ───

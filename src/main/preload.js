@@ -69,6 +69,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       update: (id, data) => ipcRenderer.invoke('db:userReprints:update', id, data),
       delete: (id) => ipcRenderer.invoke('db:userReprints:delete', id),
     },
+    reasonErrors: {
+      getAll: () => ipcRenderer.invoke('db:reasonErrors:getAll'),
+      create: (data) => ipcRenderer.invoke('db:reasonErrors:create', data),
+      update: (id, data) => ipcRenderer.invoke('db:reasonErrors:update', id, data),
+      delete: (id) => ipcRenderer.invoke('db:reasonErrors:delete', id),
+    },
     reasons: {
       getAll: () => ipcRenderer.invoke('db:reasons:getAll'),
       create: (data) => ipcRenderer.invoke('db:reasons:create', data),
@@ -80,6 +86,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
       create: (data) => ipcRenderer.invoke('db:orderTypes:create', data),
       update: (id, data) => ipcRenderer.invoke('db:orderTypes:update', id, data),
       delete: (id) => ipcRenderer.invoke('db:orderTypes:delete', id),
+    },
+    reprintSettings: {
+      get: () => ipcRenderer.invoke('db:reprintSettings:get'),
+      save: (data) => ipcRenderer.invoke('db:reprintSettings:save', data),
     },
     timelines: {
       getByReprint: (reprintId) => ipcRenderer.invoke('db:timelines:getByReprint', reprintId),

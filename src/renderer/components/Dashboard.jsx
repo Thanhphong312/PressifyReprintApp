@@ -22,6 +22,8 @@ export default function Dashboard() {
   const [reprints, setReprints] = useState({});
   const [users, setUsers] = useState({});
   const [reasons, setReasons] = useState({});
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   async function loadData() {
     const [r, u, re] = await Promise.all([
@@ -36,14 +38,26 @@ export default function Dashboard() {
 
   useEffect(() => { loadData(); }, []);
 
-  const reprintArr = Object.values(reprints);
+  // Filter by date range
+  const reprintArr = Object.values(reprints).filter((r) => {
+    if (dateFrom) {
+      const created = (r.created_at || '').substring(0, 10);
+      if (created < dateFrom) return false;
+    }
+    if (dateTo) {
+      const created = (r.created_at || '').substring(0, 10);
+      if (created > dateTo) return false;
+    }
+    return true;
+  });
+
   const total = reprintArr.length;
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayCount = reprintArr.filter(
-    (r) => r.created_at && r.created_at >= todayStart.getTime()
-  ).length;
+  // Total reprints & orders with status completed only
+  const completedArr = reprintArr.filter((r) => r.status === 'completed');
+  const totalCompleted = completedArr.length;
+  const uniqueOrders = new Set(completedArr.map((r) => r.order_id).filter((id) => id && id.trim()));
+  const totalOrders = uniqueOrders.size;
 
   const byStatus = {};
   reprintArr.forEach((r) => {
@@ -60,15 +74,55 @@ export default function Dashboard() {
     ],
   };
 
+  const statusPieOptions = {
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom' },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const val = ctx.parsed;
+            const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+            return `${ctx.label}: ${val} (${pct}%)`;
+          },
+        },
+      },
+    },
+  };
+
+  // Reason pie chart with % and total
   const byReason = {};
   reprintArr.forEach((r) => {
     const name = reasons[r.reason_reprint_id]?.name || 'Unknown';
     byReason[name] = (byReason[name] || 0) + 1;
   });
 
-  const reasonBarData = {
+  const REASON_COLORS = ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1', '#fd7e14', '#20c997', '#0dcaf0', '#6c757d', '#d63384'];
+
+  const reasonPieData = {
     labels: Object.keys(byReason),
-    datasets: [{ label: 'Reprints', data: Object.values(byReason), backgroundColor: '#0d6efd' }],
+    datasets: [{
+      data: Object.values(byReason),
+      backgroundColor: Object.keys(byReason).map((_, i) => REASON_COLORS[i % REASON_COLORS.length]),
+    }],
+  };
+
+  const reasonTotal = Object.values(byReason).reduce((a, b) => a + b, 0);
+
+  const reasonPieOptions = {
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom' },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const val = ctx.parsed;
+            const pct = reasonTotal > 0 ? ((val / reasonTotal) * 100).toFixed(1) : 0;
+            return `${ctx.label}: ${val} (${pct}%)`;
+          },
+        },
+      },
+    },
   };
 
   const bySupport = {};
@@ -90,21 +144,31 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h4 className="mb-4">Dashboard</h4>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h4 className="mb-0">Dashboard</h4>
+        <div className="d-flex gap-2 align-items-center">
+          <input type="date" className="form-control form-control-sm" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} title="From date" style={{ width: '150px' }} />
+          <span className="text-muted small">to</span>
+          <input type="date" className="form-control form-control-sm" value={dateTo} onChange={(e) => setDateTo(e.target.value)} title="To date" style={{ width: '150px' }} />
+          {(dateFrom || dateTo) && (
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => { setDateFrom(''); setDateTo(''); }}>Clear</button>
+          )}
+        </div>
+      </div>
       <div className="row g-3 mb-4">
         <div className="col-md-3">
           <div className="card border-primary">
             <div className="card-body text-center">
               <div className="text-muted small">Total Reprints</div>
-              <div className="fs-2 fw-bold text-primary">{total}</div>
+              <div className="fs-2 fw-bold text-primary">{totalCompleted}</div>
             </div>
           </div>
         </div>
         <div className="col-md-3">
-          <div className="card border-success">
+          <div className="card border-dark">
             <div className="card-body text-center">
-              <div className="text-muted small">Today</div>
-              <div className="fs-2 fw-bold text-success">{todayCount}</div>
+              <div className="text-muted small">Total Orders</div>
+              <div className="fs-2 fw-bold text-dark">{totalOrders}</div>
             </div>
           </div>
         </div>
@@ -130,15 +194,15 @@ export default function Dashboard() {
           <div className="card">
             <div className="card-header">Reprints by Status</div>
             <div className="card-body">
-              {total > 0 ? <Pie data={statusPieData} /> : <p className="text-muted text-center">No data</p>}
+              {total > 0 ? <Pie data={statusPieData} options={statusPieOptions} /> : <p className="text-muted text-center">No data</p>}
             </div>
           </div>
         </div>
         <div className="col-md-4">
           <div className="card">
-            <div className="card-header">Reprints by Reason</div>
-            <div className="card-body" style={{ height: '300px' }}>
-              {total > 0 ? <Bar data={reasonBarData} options={barOptions} /> : <p className="text-muted text-center">No data</p>}
+            <div className="card-header">Reprints by Reason ({reasonTotal})</div>
+            <div className="card-body">
+              {reasonTotal > 0 ? <Pie data={reasonPieData} options={reasonPieOptions} /> : <p className="text-muted text-center">No data</p>}
             </div>
           </div>
         </div>

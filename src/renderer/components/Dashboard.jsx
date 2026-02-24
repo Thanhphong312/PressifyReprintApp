@@ -158,7 +158,7 @@ export default function Dashboard() {
         </div>
       </div>
       <div className="row g-3 mb-4">
-        <div className="col-md-3">
+        <div className="col">
           <div className="card border-primary">
             <div className="card-body text-center">
               <div className="text-muted small">Total Reprints</div>
@@ -166,7 +166,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-        <div className="col-md-3">
+        <div className="col">
           <div className="card border-dark">
             <div className="card-body text-center">
               <div className="text-muted small">Total Orders</div>
@@ -174,7 +174,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-        <div className="col-md-3">
+        <div className="col">
           <div className="card border-warning">
             <div className="card-body text-center">
               <div className="text-muted small">Not Yet</div>
@@ -182,11 +182,19 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-        <div className="col-md-3">
+        <div className="col">
           <div className="card border-info">
             <div className="card-body text-center">
               <div className="text-muted small">Processing</div>
               <div className="fs-2 fw-bold text-info">{byStatus['processing'] || 0}</div>
+            </div>
+          </div>
+        </div>
+        <div className="col">
+          <div className="card border-success">
+            <div className="card-body text-center">
+              <div className="text-muted small">Processing Reprint</div>
+              <div className="fs-2 fw-bold text-success">{(byStatus['not_yet'] || 0) + (byStatus['processing'] || 0)}</div>
             </div>
           </div>
         </div>
@@ -195,7 +203,7 @@ export default function Dashboard() {
         <div className="col-md-4">
           <div className="card">
             <div className="card-header">Reprints by Status</div>
-            <div className="card-body">
+            <div className="card-body d-flex justify-content-center" style={{ maxHeight: '250px' }}>
               {total > 0 ? <Pie data={statusPieData} options={statusPieOptions} /> : <p className="text-muted text-center">No data</p>}
             </div>
           </div>
@@ -203,7 +211,7 @@ export default function Dashboard() {
         <div className="col-md-4">
           <div className="card">
             <div className="card-header">Reprints by Reason ({reasonTotal})</div>
-            <div className="card-body">
+            <div className="card-body d-flex justify-content-center" style={{ maxHeight: '250px' }}>
               {reasonTotal > 0 ? <Pie data={reasonPieData} options={reasonPieOptions} /> : <p className="text-muted text-center">No data</p>}
             </div>
           </div>

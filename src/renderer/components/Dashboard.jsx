@@ -194,7 +194,7 @@ export default function Dashboard() {
           <div className="card border-success">
             <div className="card-body text-center">
               <div className="text-muted small">Processing Reprint</div>
-              <div className="fs-2 fw-bold text-success">{(byStatus['not_yet'] || 0) + (byStatus['processing'] || 0)}</div>
+              <div className="fs-2 fw-bold text-success">{byStatus['processing'] || 0}</div>
             </div>
           </div>
         </div>

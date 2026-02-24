@@ -13,11 +13,13 @@ function extractOrderId(val) {
   const s = val.trim();
   try {
     const url = new URL(s);
-    if (url.hostname === 'qr.pressify.us') {
+    const host = url.hostname.replace(/ú/g, 'u');
+    if (host === 'qr.pressify.us') {
       return url.pathname.replace(/^\//, '');
     }
-    if (url.hostname === 'shirt.pressify.us' && url.searchParams.has('search')) {
-      return url.searchParams.get('search');
+    if (host === 'shirt.pressify.us') {
+      if (url.searchParams.has('search')) return url.searchParams.get('search');
+      return url.pathname.replace(/^\//, '');
     }
   } catch { /* not a URL */ }
   return s;

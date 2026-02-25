@@ -22,25 +22,30 @@ export default function Dashboard() {
   const [reprints, setReprints] = useState({});
   const [users, setUsers] = useState({});
   const [reasons, setReasons] = useState({});
+  const [reprintTypes, setReprintTypes] = useState({});
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
 
   async function loadData() {
-    const [r, u, re] = await Promise.all([
+    const [r, u, re, rt] = await Promise.all([
       window.electronAPI.db.reprints.getAll(),
       window.electronAPI.db.users.getAll(),
       window.electronAPI.db.reasons.getAll(),
+      window.electronAPI.db.reprintTypes.getAll(),
     ]);
     setReprints(r);
     setUsers(u);
     setReasons(re);
+    setReprintTypes(rt);
   }
 
   useEffect(() => { loadData(); }, []);
 
-  // Filter by date range, only include reprints that have an order_id
+  // Filter by date range, reprint type, only include reprints that have an order_id
   const reprintArr = Object.values(reprints).filter((r) => {
     if (!r.order_id || !r.order_id.trim()) return false;
+    if (typeFilter && String(r.reprint_type_id) !== typeFilter) return false;
     if (dateFrom) {
       const created = (r.created_at || '').substring(0, 10);
       if (created < dateFrom) return false;
@@ -145,16 +150,24 @@ export default function Dashboard() {
     plugins: { legend: { display: false } },
   };
 
+  const typeOpts = Object.entries(reprintTypes).sort(([a], [b]) => Number(a) - Number(b));
+
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h4 className="mb-0">Dashboard</h4>
         <div className="d-flex gap-2 align-items-center">
+          <select className="form-select form-select-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} style={{ width: '150px' }}>
+            <option value="">All Types</option>
+            {typeOpts.map(([id, t]) => (
+              <option key={id} value={id}>{t.name}</option>
+            ))}
+          </select>
           <input type="date" className="form-control form-control-sm" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} title="From date" style={{ width: '150px' }} />
           <span className="text-muted small">to</span>
           <input type="date" className="form-control form-control-sm" value={dateTo} onChange={(e) => setDateTo(e.target.value)} title="To date" style={{ width: '150px' }} />
-          {(dateFrom || dateTo) && (
-            <button className="btn btn-sm btn-outline-secondary" onClick={() => { setDateFrom(''); setDateTo(''); }}>Clear</button>
+          {(dateFrom || dateTo || typeFilter) && (
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => { setDateFrom(''); setDateTo(''); setTypeFilter(''); }}>Clear</button>
           )}
         </div>
       </div>
@@ -218,7 +231,7 @@ export default function Dashboard() {
             {reasonTotal > 0 && (
               <div className="card-footer p-2">
                 <div className="d-flex flex-wrap gap-2 justify-content-center">
-                  {Object.entries(byReason).sort((a, b) => b[1] - a[1]).map(([name, count], i) => (
+                  {Object.entries(byReason).sort((a, b) => b[1] - a[1]).map(([name, count]) => (
                     <span key={name} className="badge" style={{ backgroundColor: REASON_COLORS[Object.keys(byReason).indexOf(name) % REASON_COLORS.length], fontSize: '0.75rem' }}>
                       {name}: {count}
                     </span>

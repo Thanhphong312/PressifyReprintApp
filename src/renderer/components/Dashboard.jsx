@@ -215,6 +215,17 @@ export default function Dashboard() {
             <div className="card-body d-flex justify-content-center" style={{ maxHeight: '250px' }}>
               {reasonTotal > 0 ? <Pie data={reasonPieData} options={reasonPieOptions} /> : <p className="text-muted text-center">No data</p>}
             </div>
+            {reasonTotal > 0 && (
+              <div className="card-footer p-2">
+                <div className="d-flex flex-wrap gap-2 justify-content-center">
+                  {Object.entries(byReason).sort((a, b) => b[1] - a[1]).map(([name, count], i) => (
+                    <span key={name} className="badge" style={{ backgroundColor: REASON_COLORS[Object.keys(byReason).indexOf(name) % REASON_COLORS.length], fontSize: '0.75rem' }}>
+                      {name}: {count}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
         <div className="col-md-4">

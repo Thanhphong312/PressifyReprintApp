@@ -64,26 +64,37 @@ function EditableText({ value, onSave, className, placeholder }) {
 
 function EditableSelect({ value, options, onSave, className, displayValue, onAddNew }) {
   const [editing, setEditing] = useState(false);
-  const selectRef = useRef(null);
+  const [search, setSearch] = useState('');
+  const inputRef = useRef(null);
+  const wrapRef = useRef(null);
 
   useEffect(() => {
-    if (editing && selectRef.current) {
-      selectRef.current.focus();
-      requestAnimationFrame(() => {
-        if (selectRef.current) {
-          try { selectRef.current.showPicker(); } catch { /* fallback: already focused */ }
-        }
-      });
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
     }
+  }, [editing]);
+
+  useEffect(() => {
+    if (!editing) return;
+    function handleClickOutside(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setEditing(false);
+        setSearch('');
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [editing]);
 
   function commit(newVal) {
     if (newVal === '__add_new__') {
       setEditing(false);
+      setSearch('');
       if (onAddNew) onAddNew();
       return;
     }
     setEditing(false);
+    setSearch('');
     if (newVal !== (value || '')) onSave(newVal);
   }
 
@@ -95,20 +106,42 @@ function EditableSelect({ value, options, onSave, className, displayValue, onAdd
     );
   }
 
+  const filtered = options.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()));
+
   return (
-    <select
-      ref={selectRef}
-      className="form-select form-select-sm inline-input"
-      value={value || ''}
-      onChange={(e) => commit(e.target.value)}
-      onBlur={() => setEditing(false)}
-    >
-      <option value="">-- Select --</option>
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-      {onAddNew && <option value="__add_new__">+ Add New...</option>}
-    </select>
+    <div ref={wrapRef} style={{ position: 'relative', minWidth: '150px' }}>
+      <input
+        ref={inputRef}
+        type="text"
+        className="form-control form-control-sm inline-input"
+        placeholder="Search..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') { setEditing(false); setSearch(''); }
+        }}
+      />
+      <div className="dropdown-search-list" style={{
+        position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999,
+        maxHeight: '180px', overflowY: 'auto', backgroundColor: '#fff',
+        border: '1px solid #dee2e6', borderRadius: '0 0 4px 4px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+      }}>
+        <div className="dropdown-search-item px-2 py-1 text-muted" style={{ cursor: 'pointer', fontSize: '0.8rem' }}
+          onMouseDown={() => commit('')}>-- Clear --</div>
+        {filtered.map((o) => (
+          <div key={o.value}
+            className="dropdown-search-item px-2 py-1"
+            style={{ cursor: 'pointer', fontSize: '0.8rem', backgroundColor: o.value === value ? '#e8f0fe' : '' }}
+            onMouseDown={() => commit(o.value)}
+          >{o.label}</div>
+        ))}
+        {filtered.length === 0 && <div className="px-2 py-1 text-muted" style={{ fontSize: '0.8rem' }}>No match</div>}
+        {onAddNew && (
+          <div className="dropdown-search-item px-2 py-1 text-primary fw-bold" style={{ cursor: 'pointer', fontSize: '0.8rem', borderTop: '1px solid #dee2e6' }}
+            onMouseDown={() => commit('__add_new__')}>+ Add New...</div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -434,20 +467,26 @@ export default function ReprintList() {
     : reprintList;
 
   // ─── Lookup helpers ───
+  const sortById = (a, b) => Number(a.value) - Number(b.value);
+
   const supportUserOpts = Object.entries(users)
     .filter(([, u]) => u.role === 'support')
-    .map(([id, u]) => ({ value: id, label: u.name }));
+    .map(([id, u]) => ({ value: id, label: u.name }))
+    .sort(sortById);
 
   const errorUserOpts = Object.entries(userReprints)
     .filter(([, u]) => u.type === 1)
-    .map(([id, u]) => ({ value: id, label: u.name }));
+    .map(([id, u]) => ({ value: id, label: u.name }))
+    .sort(sortById);
 
   const noteUserOpts = Object.entries(userReprints)
     .filter(([, u]) => u.type === 2)
-    .map(([id, u]) => ({ value: id, label: u.name }));
+    .map(([id, u]) => ({ value: id, label: u.name }))
+    .sort(sortById);
 
   const reasonOpts = Object.entries(reasons)
-    .map(([id, r]) => ({ value: id, label: r.name }));
+    .map(([id, r]) => ({ value: id, label: r.name }))
+    .sort(sortById);
 
   const statusOpts = [
     { value: 'not_yet', label: 'Not Yet' },
@@ -458,18 +497,19 @@ export default function ReprintList() {
 
   const productOpts = Object.entries(productReprints)
     .map(([id, p]) => ({ value: id, label: p.name }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .sort(sortById);
 
   const colorOpts = Object.entries(colorReprints)
     .map(([id, c]) => ({ value: id, label: c.name }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .sort(sortById);
 
   const sizeOpts = Object.entries(sizeReprints)
     .map(([id, s]) => ({ value: id, label: s.name }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .sort(sortById);
 
   const reasonErrorOpts = Object.entries(reasonErrors)
-    .map(([id, r]) => ({ value: id, label: r.name }));
+    .map(([id, r]) => ({ value: id, label: r.name }))
+    .sort(sortById);
 
   const brandOpts = [
     { value: 'Circle', label: 'Circle' },

@@ -53,8 +53,15 @@ export default function ProductList() {
     await loadData();
   }
 
+  function parseBulkText(text) {
+    return text
+      .split(/[\n,]+/)
+      .map((s) => s.trim().replace(/^["']+|["']+$/g, '').replace(/\\n/g, '').trim())
+      .filter(Boolean);
+  }
+
   async function handleBulkProduct() {
-    const names = bulkProductText.split('\n').map((s) => s.trim()).filter(Boolean);
+    const names = parseBulkText(bulkProductText);
     if (names.length === 0) return;
     for (const name of names) {
       await window.electronAPI.db.productReprints.create({ name });
@@ -86,7 +93,7 @@ export default function ProductList() {
   }
 
   async function handleBulkColor() {
-    const names = bulkColorText.split('\n').map((s) => s.trim()).filter(Boolean);
+    const names = parseBulkText(bulkColorText);
     if (names.length === 0) return;
     for (const name of names) {
       await window.electronAPI.db.colorReprints.create({ name });
@@ -118,7 +125,7 @@ export default function ProductList() {
   }
 
   async function handleBulkSize() {
-    const names = bulkSizeText.split('\n').map((s) => s.trim()).filter(Boolean);
+    const names = parseBulkText(bulkSizeText);
     if (names.length === 0) return;
     for (const name of names) {
       await window.electronAPI.db.sizeReprints.create({ name });

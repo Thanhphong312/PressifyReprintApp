@@ -133,6 +133,11 @@ select.inline-input {
   min-width: 130px;
 }
 
+/* Searchable dropdown */
+.dropdown-search-item:hover {
+  background-color: #e9ecef !important;
+}
+
 /* Status select */
 .status-select {
   font-size: 0.75rem;

@@ -10,14 +10,20 @@ export default function ProductList() {
   // Product form state
   const [editProduct, setEditProduct] = useState(null);
   const [productName, setProductName] = useState('');
+  const [bulkProduct, setBulkProduct] = useState(false);
+  const [bulkProductText, setBulkProductText] = useState('');
 
   // Color form state
   const [editColor, setEditColor] = useState(null);
   const [colorName, setColorName] = useState('');
+  const [bulkColor, setBulkColor] = useState(false);
+  const [bulkColorText, setBulkColorText] = useState('');
 
   // Size form state
   const [editSize, setEditSize] = useState(null);
   const [sizeName, setSizeName] = useState('');
+  const [bulkSize, setBulkSize] = useState(false);
+  const [bulkSizeText, setBulkSizeText] = useState('');
 
   async function loadData() {
     const [pr, cr, sr] = await Promise.all([
@@ -47,6 +53,17 @@ export default function ProductList() {
     await loadData();
   }
 
+  async function handleBulkProduct() {
+    const names = bulkProductText.split('\n').map((s) => s.trim()).filter(Boolean);
+    if (names.length === 0) return;
+    for (const name of names) {
+      await window.electronAPI.db.productReprints.create({ name });
+    }
+    setBulkProductText('');
+    setBulkProduct(false);
+    await loadData();
+  }
+
   async function handleDeleteProduct(id) {
     if (!confirm('Delete this product?')) return;
     await window.electronAPI.db.productReprints.delete(id);
@@ -68,6 +85,17 @@ export default function ProductList() {
     await loadData();
   }
 
+  async function handleBulkColor() {
+    const names = bulkColorText.split('\n').map((s) => s.trim()).filter(Boolean);
+    if (names.length === 0) return;
+    for (const name of names) {
+      await window.electronAPI.db.colorReprints.create({ name });
+    }
+    setBulkColorText('');
+    setBulkColor(false);
+    await loadData();
+  }
+
   async function handleDeleteColor(id) {
     if (!confirm('Delete this color?')) return;
     await window.electronAPI.db.colorReprints.delete(id);
@@ -86,6 +114,17 @@ export default function ProductList() {
     }
     setSizeName('');
     setEditSize(null);
+    await loadData();
+  }
+
+  async function handleBulkSize() {
+    const names = bulkSizeText.split('\n').map((s) => s.trim()).filter(Boolean);
+    if (names.length === 0) return;
+    for (const name of names) {
+      await window.electronAPI.db.sizeReprints.create({ name });
+    }
+    setBulkSizeText('');
+    setBulkSize(false);
     await loadData();
   }
 
@@ -111,8 +150,20 @@ export default function ProductList() {
         {/* ─── Products ─── */}
         <div className="col-md-4">
           <div className="card mb-3">
-            <div className="card-header"><strong>Products</strong></div>
+            <div className="card-header d-flex justify-content-between align-items-center">
+              <strong>Products</strong>
+              <button className="btn btn-sm btn-outline-success" onClick={() => setBulkProduct(!bulkProduct)}>
+                {bulkProduct ? 'Single' : 'Add Many'}
+              </button>
+            </div>
             <div className="card-body py-2">
+              {bulkProduct ? (
+                <div className="mb-2">
+                  <textarea className="form-control form-control-sm mb-2" rows="5" placeholder="One product per line" value={bulkProductText} onChange={(e) => setBulkProductText(e.target.value)} />
+                  <button className="btn btn-sm btn-primary" onClick={handleBulkProduct}>Add All</button>
+                  <button className="btn btn-sm btn-secondary ms-1" onClick={() => { setBulkProduct(false); setBulkProductText(''); }}>Cancel</button>
+                </div>
+              ) : (
               <form onSubmit={handleSaveProduct} className="row g-2 align-items-center mb-2">
                 <div className="col">
                   <input type="text" className="form-control form-control-sm" placeholder="Product name" value={productName} onChange={(e) => setProductName(e.target.value)} required />
@@ -124,6 +175,7 @@ export default function ProductList() {
                   )}
                 </div>
               </form>
+              )}
               <table className="table table-sm mb-0">
                 <thead className="table-light">
                   <tr>
@@ -155,8 +207,20 @@ export default function ProductList() {
         {/* ─── Colors ─── */}
         <div className="col-md-4">
           <div className="card mb-3">
-            <div className="card-header"><strong>Colors</strong></div>
+            <div className="card-header d-flex justify-content-between align-items-center">
+              <strong>Colors</strong>
+              <button className="btn btn-sm btn-outline-success" onClick={() => setBulkColor(!bulkColor)}>
+                {bulkColor ? 'Single' : 'Add Many'}
+              </button>
+            </div>
             <div className="card-body py-2">
+              {bulkColor ? (
+                <div className="mb-2">
+                  <textarea className="form-control form-control-sm mb-2" rows="5" placeholder="One color per line" value={bulkColorText} onChange={(e) => setBulkColorText(e.target.value)} />
+                  <button className="btn btn-sm btn-primary" onClick={handleBulkColor}>Add All</button>
+                  <button className="btn btn-sm btn-secondary ms-1" onClick={() => { setBulkColor(false); setBulkColorText(''); }}>Cancel</button>
+                </div>
+              ) : (
               <form onSubmit={handleSaveColor} className="row g-2 align-items-center mb-2">
                 <div className="col">
                   <input type="text" className="form-control form-control-sm" placeholder="Color name" value={colorName} onChange={(e) => setColorName(e.target.value)} required />
@@ -168,6 +232,7 @@ export default function ProductList() {
                   )}
                 </div>
               </form>
+              )}
               <table className="table table-sm mb-0">
                 <thead className="table-light">
                   <tr>
@@ -199,8 +264,20 @@ export default function ProductList() {
         {/* ─── Sizes ─── */}
         <div className="col-md-4">
           <div className="card mb-3">
-            <div className="card-header"><strong>Sizes</strong></div>
+            <div className="card-header d-flex justify-content-between align-items-center">
+              <strong>Sizes</strong>
+              <button className="btn btn-sm btn-outline-success" onClick={() => setBulkSize(!bulkSize)}>
+                {bulkSize ? 'Single' : 'Add Many'}
+              </button>
+            </div>
             <div className="card-body py-2">
+              {bulkSize ? (
+                <div className="mb-2">
+                  <textarea className="form-control form-control-sm mb-2" rows="5" placeholder="One size per line" value={bulkSizeText} onChange={(e) => setBulkSizeText(e.target.value)} />
+                  <button className="btn btn-sm btn-primary" onClick={handleBulkSize}>Add All</button>
+                  <button className="btn btn-sm btn-secondary ms-1" onClick={() => { setBulkSize(false); setBulkSizeText(''); }}>Cancel</button>
+                </div>
+              ) : (
               <form onSubmit={handleSaveSize} className="row g-2 align-items-center mb-2">
                 <div className="col">
                   <input type="text" className="form-control form-control-sm" placeholder="Size name" value={sizeName} onChange={(e) => setSizeName(e.target.value)} required />
@@ -212,6 +289,7 @@ export default function ProductList() {
                   )}
                 </div>
               </form>
+              )}
               <table className="table table-sm mb-0">
                 <thead className="table-light">
                   <tr>

@@ -483,14 +483,17 @@ export default function ReprintList() {
           <h4 className="mb-0">Reprints</h4>
           {selectedIds.size > 0 && (<>
             <button className="btn btn-sm btn-outline-secondary" onClick={() => {
-              const orders = [];
+              const lines = [];
               selectedIds.forEach((id) => {
                 const r = reprints[id];
-                if (r && r.order_id && r.order_id.trim()) orders.push(r.order_id);
+                if (r && r.order_id && r.order_id.trim()) {
+                  const reasonName = r.reason_reprint_id && reasons[r.reason_reprint_id] ? reasons[r.reason_reprint_id].name : '';
+                  lines.push(reasonName ? `${r.order_id}  ${reasonName}` : r.order_id);
+                }
               });
-              if (orders.length > 0) {
-                navigator.clipboard.writeText(orders.join('\n'));
-                setCopyMsg(`Copied ${orders.length} order ID(s)`);
+              if (lines.length > 0) {
+                navigator.clipboard.writeText(lines.join('\n'));
+                setCopyMsg(`Copied ${lines.length} order ID(s)`);
                 setTimeout(() => setCopyMsg(null), 2000);
               } else {
                 setCopyMsg('No order IDs to copy');

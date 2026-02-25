@@ -38,8 +38,9 @@ export default function Dashboard() {
 
   useEffect(() => { loadData(); }, []);
 
-  // Filter by date range
+  // Filter by date range, only include reprints that have an order_id
   const reprintArr = Object.values(reprints).filter((r) => {
+    if (!r.order_id || !r.order_id.trim()) return false;
     if (dateFrom) {
       const created = (r.created_at || '').substring(0, 10);
       if (created < dateFrom) return false;

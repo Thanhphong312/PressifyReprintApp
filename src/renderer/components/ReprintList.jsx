@@ -614,7 +614,7 @@ export default function ReprintList() {
                 const r = reprints[id];
                 if (r && r.order_id && r.order_id.trim()) {
                   const note = (r.note || '').trim();
-                  lines.push(note ? `${r.order_id}  ${note}` : r.order_id);
+                  lines.push(note ? `${r.order_id} ${note}` : r.order_id);
                 }
               });
               if (lines.length > 0) {

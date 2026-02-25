@@ -212,27 +212,37 @@ export default function ReprintList() {
     return `${y}-${m}-${d}`;
   });
 
+  const loadingRef = useRef(false);
+
   async function loadData() {
-    const [r, u, re, pr, cr, sr, ur, rErr, rt] = await Promise.all([
-      window.electronAPI.db.reprints.getAll(),
-      window.electronAPI.db.users.getAll(),
-      window.electronAPI.db.reasons.getAll(),
-      window.electronAPI.db.productReprints.getAll(),
-      window.electronAPI.db.colorReprints.getAll(),
-      window.electronAPI.db.sizeReprints.getAll(),
-      window.electronAPI.db.userReprints.getAll(),
-      window.electronAPI.db.reasonErrors.getAll(),
-      window.electronAPI.db.reprintTypes.getAll(),
-    ]);
-    setReprints(r);
-    setUsers(u);
-    setReasons(re);
-    setProductReprints(pr);
-    setColorReprints(cr);
-    setSizeReprints(sr);
-    setUserReprints(ur);
-    setReasonErrors(rErr);
-    setReprintTypes(rt);
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    try {
+      const [r, u, re, pr, cr, sr, ur, rErr, rt] = await Promise.all([
+        window.electronAPI.db.reprints.getAll(),
+        window.electronAPI.db.users.getAll(),
+        window.electronAPI.db.reasons.getAll(),
+        window.electronAPI.db.productReprints.getAll(),
+        window.electronAPI.db.colorReprints.getAll(),
+        window.electronAPI.db.sizeReprints.getAll(),
+        window.electronAPI.db.userReprints.getAll(),
+        window.electronAPI.db.reasonErrors.getAll(),
+        window.electronAPI.db.reprintTypes.getAll(),
+      ]);
+      setReprints(r);
+      setUsers(u);
+      setReasons(re);
+      setProductReprints(pr);
+      setColorReprints(cr);
+      setSizeReprints(sr);
+      setUserReprints(ur);
+      setReasonErrors(rErr);
+      setReprintTypes(rt);
+    } catch {
+      // Silently ignore polling errors
+    } finally {
+      loadingRef.current = false;
+    }
   }
 
   // ─── Polling every 30s (only when window is focused) + reload on refocus ───

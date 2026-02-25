@@ -487,12 +487,8 @@ export default function ReprintList() {
               selectedIds.forEach((id) => {
                 const r = reprints[id];
                 if (r && r.order_id && r.order_id.trim()) {
-                  const parts = [r.order_id];
-                  const reasonName = r.reason_reprint_id && reasons[r.reason_reprint_id] ? reasons[r.reason_reprint_id].name : '';
-                  if (reasonName) parts.push(reasonName);
                   const note = (r.note || '').trim();
-                  if (note) parts.push(note);
-                  lines.push(parts.join('  '));
+                  lines.push(note ? `${r.order_id}  ${note}` : r.order_id);
                 }
               });
               if (lines.length > 0) {

@@ -196,6 +196,25 @@ function registerHandlers() {
     await apiClient.del(`/api/reason-errors/${id}`);
   });
 
+  // ─── Reprint Types ───
+
+  ipcMain.handle('db:reprintTypes:getAll', async () => {
+    return apiClient.get('/api/reprint-types');
+  });
+
+  ipcMain.handle('db:reprintTypes:create', async (_, data) => {
+    const result = await apiClient.post('/api/reprint-types', data);
+    return result.id;
+  });
+
+  ipcMain.handle('db:reprintTypes:update', async (_, id, data) => {
+    await apiClient.put(`/api/reprint-types/${id}`, data);
+  });
+
+  ipcMain.handle('db:reprintTypes:delete', async (_, id) => {
+    await apiClient.del(`/api/reprint-types/${id}`);
+  });
+
   // ─── Reason Reprints ───
 
   ipcMain.handle('db:reasons:getAll', async () => {

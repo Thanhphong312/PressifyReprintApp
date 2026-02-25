@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import logo from '../assets/logo.png';
 
-const MENU_ITEMS = [
+const STATIC_MENU_BEFORE = [
   { path: '/dashboard', label: 'Dashboard', icon: 'bi-speedometer2', roles: ['admin'] },
-  { path: '/reprints', label: 'Reprints', icon: 'bi-printer', roles: null },
+];
+
+const STATIC_MENU_AFTER = [
   { path: '/products', label: 'Products', icon: 'bi-box-seam', roles: ['admin'] },
   { path: '/permission', label: 'Permission', icon: 'bi-shield-lock', roles: ['admin'] },
   { path: '/settings', label: 'Settings', icon: 'bi-gear', roles: ['admin'] },
@@ -14,16 +16,26 @@ const MENU_ITEMS = [
 export default function Layout() {
   const { currentUser, ssoEnabled, logout, openWeb } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [reprintTypes, setReprintTypes] = useState({});
 
   useEffect(() => {
     if (window.electronAPI) {
       window.electronAPI.getAppVersion().then(setAppVersion);
       window.electronAPI.onUpdateDownloaded(() => setUpdateAvailable(true));
+      window.electronAPI.db.reprintTypes.getAll().then(setReprintTypes).catch(() => {});
     }
   }, []);
+
+  // Re-fetch reprint types when navigating to permission page (user may add/edit types)
+  useEffect(() => {
+    if (location.pathname === '/permission' || location.pathname.startsWith('/reprints')) {
+      window.electronAPI?.db.reprintTypes.getAll().then(setReprintTypes).catch(() => {});
+    }
+  }, [location.pathname]);
 
   async function handleLogout() {
     await logout();
@@ -44,7 +56,23 @@ export default function Layout() {
     }
   }
 
-  const visibleMenu = MENU_ITEMS.filter(
+  // Build dynamic reprint type menu items
+  const reprintTypeItems = Object.entries(reprintTypes)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([id, t]) => ({
+      path: `/reprints/${id}`,
+      label: t.name,
+      icon: 'bi-printer',
+      roles: null,
+    }));
+
+  const menuItems = [
+    ...STATIC_MENU_BEFORE,
+    ...(reprintTypeItems.length > 0 ? reprintTypeItems : [{ path: '/reprints', label: 'Reprints', icon: 'bi-printer', roles: null }]),
+    ...STATIC_MENU_AFTER,
+  ];
+
+  const visibleMenu = menuItems.filter(
     (item) => !item.roles || item.roles.includes(currentUser?.role)
   );
 
@@ -61,6 +89,7 @@ export default function Layout() {
             <NavLink
               key={item.path}
               to={item.path}
+              end={item.path === '/reprints'}
               title={item.label}
               className={({ isActive }) =>
                 `sidebar-link d-flex align-items-center ${collapsed ? 'justify-content-center' : ''} px-3 py-2 text-decoration-none ${isActive ? 'active' : ''}`

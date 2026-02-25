@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Timeline from './Timeline';
 
@@ -183,6 +184,7 @@ function EditableDatetime({ value, onSave, className }) {
 
 export default function ReprintList() {
   const { currentUser } = useAuth();
+  const { typeId } = useParams();
   const [reprints, setReprints] = useState({});
   const [users, setUsers] = useState({});
   const [reasons, setReasons] = useState({});
@@ -191,6 +193,7 @@ export default function ReprintList() {
   const [sizeReprints, setSizeReprints] = useState({});
   const [userReprints, setUserReprints] = useState({});
   const [reasonErrors, setReasonErrors] = useState({});
+  const [reprintTypes, setReprintTypes] = useState({});
   const [timelineId, setTimelineId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -210,7 +213,7 @@ export default function ReprintList() {
   });
 
   async function loadData() {
-    const [r, u, re, pr, cr, sr, ur, rErr] = await Promise.all([
+    const [r, u, re, pr, cr, sr, ur, rErr, rt] = await Promise.all([
       window.electronAPI.db.reprints.getAll(),
       window.electronAPI.db.users.getAll(),
       window.electronAPI.db.reasons.getAll(),
@@ -219,6 +222,7 @@ export default function ReprintList() {
       window.electronAPI.db.sizeReprints.getAll(),
       window.electronAPI.db.userReprints.getAll(),
       window.electronAPI.db.reasonErrors.getAll(),
+      window.electronAPI.db.reprintTypes.getAll(),
     ]);
     setReprints(r);
     setUsers(u);
@@ -228,7 +232,46 @@ export default function ReprintList() {
     setSizeReprints(sr);
     setUserReprints(ur);
     setReasonErrors(rErr);
+    setReprintTypes(rt);
   }
+
+  // ─── Polling every 30s (only when window is focused) + reload on refocus ───
+  useEffect(() => {
+    let intervalId = null;
+
+    function startPolling() {
+      if (intervalId) return;
+      intervalId = setInterval(() => { loadData(); }, 30000);
+    }
+
+    function stopPolling() {
+      if (intervalId) { clearInterval(intervalId); intervalId = null; }
+    }
+
+    function handleFocus() {
+      loadData();
+      startPolling();
+    }
+
+    function handleBlur() {
+      stopPolling();
+    }
+
+    if (document.hasFocus()) startPolling();
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      stopPolling();
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [typeId]);
+
+  // Reset selection when switching type
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [typeId]);
 
   useEffect(() => {
     async function init() {
@@ -236,16 +279,23 @@ export default function ReprintList() {
         window.electronAPI.db.reprints.getAll(),
         window.electronAPI.db.users.getAll(),
       ]);
-      // Only auto-create if no existing reprint has an empty order_id
-      const hasBlank = Object.values(r).some((rep) => !rep.order_id);
+      // Filter reprints for the current type
+      const currentTypeId = typeId || null;
+      const typeReprints = Object.values(r).filter((rep) =>
+        currentTypeId ? String(rep.reprint_type_id) === String(currentTypeId) : !rep.reprint_type_id
+      );
+      // Only auto-create if no existing reprint of this type has an empty order_id
+      const hasBlank = typeReprints.some((rep) => !rep.order_id);
       if (!hasBlank) {
         const firstSupport = Object.entries(u)
           .filter(([, usr]) => usr.role === 'support')
           .map(([id]) => id)[0] || null;
-        const newId = await window.electronAPI.db.reprints.create({
+        const createData = {
           support_id: firstSupport,
           status: 'not_yet',
-        });
+        };
+        if (currentTypeId) createData.reprint_type_id = currentTypeId;
+        const newId = await window.electronAPI.db.reprints.create(createData);
         await window.electronAPI.db.timelines.create({
           user_id: currentUser.uid,
           reprint_id: newId,
@@ -255,7 +305,7 @@ export default function ReprintList() {
       await loadData();
     }
     init();
-  }, []);
+  }, [typeId]);
 
   function getChicagoNow() {
     const now = new Date();
@@ -367,10 +417,12 @@ export default function ReprintList() {
   async function handleAdd() {
     const firstSupport = supportUserOpts[0]?.value || null;
     try {
-      const newId = await window.electronAPI.db.reprints.create({
+      const createData = {
         support_id: firstSupport,
         status: 'not_yet',
-      });
+      };
+      if (typeId) createData.reprint_type_id = typeId;
+      const newId = await window.electronAPI.db.reprints.create(createData);
       await window.electronAPI.db.timelines.create({
         user_id: currentUser.uid,
         reprint_id: newId,
@@ -418,9 +470,17 @@ export default function ReprintList() {
   }
 
   // ─── Filter + sort ───
+  const currentTypeName = typeId ? (reprintTypes[typeId]?.name || 'Reprints') : 'Reprints';
+
   const reprintList = Object.entries(reprints)
     .map(([id, data]) => ({ id, ...data }))
     .filter((r) => {
+      // Filter by reprint type
+      if (typeId) {
+        if (String(r.reprint_type_id) !== String(typeId)) return false;
+      } else {
+        if (r.reprint_type_id) return false;
+      }
       if (statusFilter && r.status !== statusFilter) return false;
       if (dateFrom) {
         const created = (r.created_at || '').substring(0, 10);
@@ -520,8 +580,24 @@ export default function ReprintList() {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div className="d-flex gap-2 align-items-center">
-          <h4 className="mb-0">Reprints</h4>
+          <h4 className="mb-0">{currentTypeName}</h4>
           {selectedIds.size > 0 && (<>
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => {
+              const lines = [];
+              selectedIds.forEach((id) => {
+                const r = reprints[id];
+                if (r && r.order_id && r.order_id.trim()) lines.push(r.order_id);
+              });
+              if (lines.length > 0) {
+                navigator.clipboard.writeText(lines.join('\n'));
+                setCopyMsg(`Copied ${lines.length} ID(s)`);
+              } else {
+                setCopyMsg('No order IDs to copy');
+              }
+              setTimeout(() => setCopyMsg(null), 2000);
+            }}>
+              Copy IDs ({selectedIds.size})
+            </button>
             <button className="btn btn-sm btn-outline-secondary" onClick={() => {
               const lines = [];
               selectedIds.forEach((id) => {
@@ -533,14 +609,13 @@ export default function ReprintList() {
               });
               if (lines.length > 0) {
                 navigator.clipboard.writeText(lines.join('\n'));
-                setCopyMsg(`Copied ${lines.length} order ID(s)`);
-                setTimeout(() => setCopyMsg(null), 2000);
+                setCopyMsg(`Copied ${lines.length} ID(s) with notes`);
               } else {
                 setCopyMsg('No order IDs to copy');
-                setTimeout(() => setCopyMsg(null), 2000);
               }
+              setTimeout(() => setCopyMsg(null), 2000);
             }}>
-              Copy Order IDs ({selectedIds.size})
+              Copy with Note ({selectedIds.size})
             </button>
             <button className="btn btn-sm btn-success" onClick={handleCompleteSelected}>
               Complete Selected ({selectedIds.size})

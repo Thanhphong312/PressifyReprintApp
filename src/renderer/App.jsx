@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
@@ -16,6 +16,23 @@ function PrivateRoute({ children, roles }) {
     return <Navigate to="/reprints" />;
   }
   return children;
+}
+
+// Redirects /reprints to /reprints/{firstTypeId}
+function ReprintRedirect() {
+  const [target, setTarget] = useState(null);
+
+  useEffect(() => {
+    window.electronAPI.db.reprintTypes.getAll()
+      .then((types) => {
+        const ids = Object.keys(types).sort((a, b) => Number(a) - Number(b));
+        setTarget(ids.length > 0 ? `/reprints/${ids[0]}` : null);
+      })
+      .catch(() => setTarget(null));
+  }, []);
+
+  if (target === null) return null; // loading
+  return <Navigate to={target} replace />;
 }
 
 function AppRoutes() {
@@ -52,7 +69,8 @@ function AppRoutes() {
               </PrivateRoute>
             }
           />
-          <Route path="reprints" element={<ReprintList />} />
+          <Route path="reprints" element={<ReprintRedirect />} />
+          <Route path="reprints/:typeId" element={<ReprintList />} />
           <Route
             path="products"
             element={

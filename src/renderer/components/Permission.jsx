@@ -7,6 +7,7 @@ export default function Permission() {
   const [roles, setRoles] = useState({});
   const [reasons, setReasons] = useState({});
   const [orderTypes, setOrderTypes] = useState({});
+  const [reprintTypes, setReprintTypes] = useState({});
   const [showUserForm, setShowUserForm] = useState(false);
   const [editUserId, setEditUserId] = useState(null);
   const [form, setForm] = useState({ email: '', username: '', password: '', first_name: '', last_name: '', role_id: '' });
@@ -15,18 +16,22 @@ export default function Permission() {
   const [editReasonId, setEditReasonId] = useState(null);
   const [orderTypeName, setOrderTypeName] = useState('');
   const [editOrderTypeId, setEditOrderTypeId] = useState(null);
+  const [reprintTypeName, setReprintTypeName] = useState('');
+  const [editReprintTypeId, setEditReprintTypeId] = useState(null);
 
   async function loadData() {
-    const [u, ro, r, ot] = await Promise.all([
+    const [u, ro, r, ot, rt] = await Promise.all([
       window.electronAPI.db.users.getAll(),
       window.electronAPI.db.roles.getAll(),
       window.electronAPI.db.reasons.getAll(),
       window.electronAPI.db.orderTypes.getAll(),
+      window.electronAPI.db.reprintTypes.getAll(),
     ]);
     setUsers(u);
     setRoles(ro);
     setReasons(r);
     setOrderTypes(ot);
+    setReprintTypes(rt);
   }
 
   useEffect(() => { loadData(); }, []);
@@ -128,6 +133,26 @@ export default function Permission() {
     }
   }
 
+  async function handleSaveReprintType(e) {
+    e.preventDefault();
+    if (!reprintTypeName.trim()) return;
+    if (editReprintTypeId) {
+      await window.electronAPI.db.reprintTypes.update(editReprintTypeId, { name: reprintTypeName.trim() });
+    } else {
+      await window.electronAPI.db.reprintTypes.create({ name: reprintTypeName.trim() });
+    }
+    setReprintTypeName('');
+    setEditReprintTypeId(null);
+    await loadData();
+  }
+
+  async function handleDeleteReprintType(id) {
+    if (confirm('Delete this reprint type?')) {
+      await window.electronAPI.db.reprintTypes.delete(id);
+      await loadData();
+    }
+  }
+
   return (
     <div>
       <h4 className="mb-3">Permission & Settings</h4>
@@ -141,6 +166,9 @@ export default function Permission() {
         </li>
         <li className="nav-item">
           <button className={`nav-link ${tab === 'order_types' ? 'active' : ''}`} onClick={() => setTab('order_types')}>Order Types</button>
+        </li>
+        <li className="nav-item">
+          <button className={`nav-link ${tab === 'reprint_types' ? 'active' : ''}`} onClick={() => setTab('reprint_types')}>Reprint Types</button>
         </li>
       </ul>
 
@@ -315,6 +343,48 @@ export default function Permission() {
                 ))}
                 {Object.keys(orderTypes).length === 0 && (
                   <tr><td colSpan="2" className="text-muted text-center">No order types added</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'reprint_types' && (
+        <div>
+          <form onSubmit={handleSaveReprintType} className="row g-2 mb-3 align-items-center">
+            <div className="col-auto">
+              <input type="text" className="form-control form-control-sm" placeholder="Reprint type name" value={reprintTypeName} onChange={(e) => setReprintTypeName(e.target.value)} required />
+            </div>
+            <div className="col-auto">
+              <button type="submit" className="btn btn-sm btn-primary">{editReprintTypeId ? 'Update' : 'Add'}</button>
+              {editReprintTypeId && (
+                <button type="button" className="btn btn-sm btn-secondary ms-1" onClick={() => { setEditReprintTypeId(null); setReprintTypeName(''); }}>Cancel</button>
+              )}
+            </div>
+          </form>
+          <div className="card">
+            <table className="table table-sm mb-0">
+              <thead className="table-light">
+                <tr>
+                  <th>Name</th>
+                  <th style={{ width: '120px' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(reprintTypes).map(([id, rt]) => (
+                  <tr key={id}>
+                    <td>{rt.name}</td>
+                    <td>
+                      <div className="btn-group btn-group-sm">
+                        <button className="btn btn-outline-primary" onClick={() => { setEditReprintTypeId(id); setReprintTypeName(rt.name); }}>Edit</button>
+                        <button className="btn btn-outline-danger" onClick={() => handleDeleteReprintType(id)}>Del</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {Object.keys(reprintTypes).length === 0 && (
+                  <tr><td colSpan="2" className="text-muted text-center">No reprint types added</td></tr>
                 )}
               </tbody>
             </table>

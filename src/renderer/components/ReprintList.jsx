@@ -799,7 +799,7 @@ export default function ReprintList() {
                     </td>
 
                     {/* ── Product ── */}
-                    <td className="cell-product">
+                    <td className="cell-product cell-note">
                       <EditableText value={r.note} placeholder="Note" onSave={(v) => saveField(r.id, 'note', v)} />
                     </td>
                     <td className="cell-product">

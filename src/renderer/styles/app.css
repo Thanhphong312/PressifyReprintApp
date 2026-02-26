@@ -100,6 +100,11 @@
   padding: 0.35rem 0.5rem !important;
 }
 
+.reprint-table td.cell-note {
+  white-space: normal;
+  min-width: 200px;
+}
+
 .col-fixed-xs { width: 40px; }
 
 /* Inline editable cells */
@@ -115,6 +120,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: background-color 0.1s;
+}
+
+.cell-note .editable-cell {
+  max-width: none;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .editable-cell:hover {

@@ -470,7 +470,27 @@ export default function ReprintList() {
     }
   }
 
-  function toggleSelect(id) {
+  const lastSelectedRef = useRef(null);
+
+  function toggleSelect(id, shiftKey) {
+    if (shiftKey && lastSelectedRef.current && lastSelectedRef.current !== id) {
+      // Shift+click: select range between last clicked and current
+      const ids = filteredByDate.map((r) => r.id);
+      const startIdx = ids.indexOf(lastSelectedRef.current);
+      const endIdx = ids.indexOf(id);
+      if (startIdx !== -1 && endIdx !== -1) {
+        const from = Math.min(startIdx, endIdx);
+        const to = Math.max(startIdx, endIdx);
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          for (let i = from; i <= to; i++) next.add(ids[i]);
+          return next;
+        });
+        lastSelectedRef.current = id;
+        return;
+      }
+    }
+    lastSelectedRef.current = id;
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -752,10 +772,10 @@ export default function ReprintList() {
                   return (
                   <tr key={r.id}
                     className={isDup ? 'row-duplicate' : selectedIds.has(r.id) ? 'row-selected' : ''}
-                    onClick={(e) => { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') toggleSelect(r.id); }}
+                    onClick={(e) => { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') toggleSelect(r.id, e.shiftKey); }}
                   >
                     <td className="text-center">
-                      <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
+                      <input type="checkbox" checked={selectedIds.has(r.id)} onChange={(e) => toggleSelect(r.id, e.nativeEvent.shiftKey)} />
                     </td>
                     <td className="text-center text-muted">{idx + 1}</td>
 

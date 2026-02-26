@@ -77,15 +77,11 @@
 .col-group-error { background-color: #4a1a3c !important; }
 .col-group-status { background-color: #3c3a1a !important; }
 
-.cell-order { background-color: #f0f5fa; }
-.cell-product { background-color: #f0faf5; }
-.cell-error { background-color: #faf0f5; }
-.cell-status { background-color: #fafaf0; }
+/* Alternating row colors */
+.reprint-table tbody tr:nth-child(odd) td { background-color: #ffffff; }
+.reprint-table tbody tr:nth-child(even) td { background-color: #f8f9fa; }
 
-.reprint-table tbody tr:hover .cell-order { background-color: #e0ecf5; }
-.reprint-table tbody tr:hover .cell-product { background-color: #e0f5ec; }
-.reprint-table tbody tr:hover .cell-error { background-color: #f5e0ec; }
-.reprint-table tbody tr:hover .cell-status { background-color: #f5f5e0; }
+.reprint-table tbody tr:hover td { background-color: #e9ecef; }
 
 /* Duplicate order_id highlight */
 .reprint-table tbody tr.row-duplicate td { background-color: #f0ad4e !important; }

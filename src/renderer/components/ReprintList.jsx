@@ -451,6 +451,24 @@ export default function ReprintList() {
     }
   }
 
+  async function handleProcessingSelected() {
+    if (selectedIds.size === 0) return;
+    try {
+      for (const id of selectedIds) {
+        await window.electronAPI.db.reprints.update(id, { status: 'processing' });
+        await window.electronAPI.db.timelines.create({
+          user_id: currentUser.uid,
+          reprint_id: id,
+          note: `Status changed to "processing" by ${currentUser.name}`,
+        });
+      }
+      setSelectedIds(new Set());
+      await loadData();
+    } catch (err) {
+      alert('Error updating reprints: ' + err.message);
+    }
+  }
+
   async function handleCompleteSelected() {
     if (selectedIds.size === 0) return;
     const finishedDate = getChicagoNow();
@@ -646,6 +664,9 @@ export default function ReprintList() {
               setTimeout(() => setCopyMsg(null), 2000);
             }}>
               Copy with Note ({selectedIds.size})
+            </button>
+            <button className="btn btn-sm btn-info" onClick={handleProcessingSelected}>
+              Processing ({selectedIds.size})
             </button>
             <button className="btn btn-sm btn-success" onClick={handleCompleteSelected}>
               Complete Selected ({selectedIds.size})

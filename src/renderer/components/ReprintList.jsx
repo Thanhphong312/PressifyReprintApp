@@ -146,6 +146,106 @@ function EditableSelect({ value, options, onSave, className, displayValue, onAdd
   );
 }
 
+function EditableCombo({ value, textValue, options, onSaveSelect, onSaveText, className, displayValue, onAddNew }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const inputRef = useRef(null);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      setDraft(textValue || '');
+    }
+  }, [editing]);
+
+  useEffect(() => {
+    if (!editing) return;
+    function handleClickOutside(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        // Save text on click outside if changed
+        if (draft !== (textValue || '')) onSaveText(draft);
+        setEditing(false);
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [editing, draft, textValue]);
+
+  function selectOption(optVal) {
+    setEditing(false);
+    setShowDropdown(false);
+    if (optVal !== (value || '')) onSaveSelect(optVal);
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter') {
+      setEditing(false);
+      setShowDropdown(false);
+      if (draft !== (textValue || '')) onSaveText(draft);
+    }
+    if (e.key === 'Escape') { setEditing(false); setShowDropdown(false); }
+  }
+
+  if (!editing) {
+    const display = displayValue || textValue;
+    return (
+      <span className={`editable-cell ${className || ''}`} onClick={() => setEditing(true)}>
+        {display || <span className="text-muted">-</span>}
+      </span>
+    );
+  }
+
+  const filtered = options.filter((o) => o.label.toLowerCase().includes(draft.toLowerCase()));
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative', minWidth: '150px' }}>
+      <div className="d-flex gap-1">
+        <input
+          ref={inputRef}
+          type="text"
+          className="form-control form-control-sm inline-input"
+          placeholder="Type or select..."
+          value={draft}
+          onChange={(e) => { setDraft(e.target.value); setShowDropdown(true); }}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setShowDropdown(true)}
+        />
+        <button
+          className="btn btn-sm btn-outline-secondary px-1"
+          style={{ fontSize: '0.7rem', lineHeight: 1 }}
+          onMouseDown={(e) => { e.preventDefault(); setShowDropdown(!showDropdown); }}
+          title="Show options"
+        >&#9660;</button>
+      </div>
+      {showDropdown && (
+        <div className="dropdown-search-list" style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999,
+          maxHeight: '180px', overflowY: 'auto', backgroundColor: '#fff',
+          border: '1px solid #dee2e6', borderRadius: '0 0 4px 4px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        }}>
+          <div className="dropdown-search-item px-2 py-1 text-muted" style={{ cursor: 'pointer', fontSize: '0.8rem' }}
+            onMouseDown={() => { selectOption(''); onSaveText(''); setDraft(''); }}>-- Clear --</div>
+          {filtered.map((o) => (
+            <div key={o.value}
+              className="dropdown-search-item px-2 py-1"
+              style={{ cursor: 'pointer', fontSize: '0.8rem', backgroundColor: o.value === value ? '#e8f0fe' : '' }}
+              onMouseDown={() => { selectOption(o.value); setDraft(o.label); }}
+            >{o.label}</div>
+          ))}
+          {filtered.length === 0 && <div className="px-2 py-1 text-muted" style={{ fontSize: '0.8rem' }}>No match</div>}
+          {onAddNew && (
+            <div className="dropdown-search-item px-2 py-1 text-primary fw-bold" style={{ cursor: 'pointer', fontSize: '0.8rem', borderTop: '1px solid #dee2e6' }}
+              onMouseDown={() => { setEditing(false); setShowDropdown(false); onAddNew(); }}>+ Add New...</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EditableDatetime({ value, onSave, className }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value || '');
@@ -965,11 +1065,13 @@ export default function ReprintList() {
 
                     {/* ── Error ── */}
                     <td className="cell-error">
-                      <EditableSelect
+                      <EditableCombo
                         value={r.reason_error_id}
+                        textValue={r.reason_error || reasonErrors[r.reason_error_id]?.name || ''}
                         options={reasonErrorOpts}
-                        displayValue={reasonErrors[r.reason_error_id]?.name}
-                        onSave={(v) => saveField(r.id, 'reason_error_id', v)}
+                        displayValue={r.reason_error || reasonErrors[r.reason_error_id]?.name}
+                        onSaveSelect={(v) => saveField(r.id, 'reason_error_id', v)}
+                        onSaveText={(v) => saveField(r.id, 'reason_error', v)}
                         onAddNew={() => { setAddNewModal({ type: 'reasonError', reprintId: r.id }); setNewItemName(''); }}
                       />
                     </td>

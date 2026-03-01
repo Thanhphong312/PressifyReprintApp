@@ -207,9 +207,33 @@ td:hover .drag-fill-handle {
   transform: scale(1.3);
 }
 
+/* Drag fill active state */
+.reprint-table tbody tr.row-drag-source td {
+  background-color: #a8c7fa !important;
+  outline: 2px solid #0d6efd;
+  outline-offset: -2px;
+}
+
 /* Drag fill target highlight */
 .reprint-table tbody tr.row-drag-fill td {
   background-color: #cfe2ff !important;
+  border-top: 1px dashed #0d6efd !important;
+  border-bottom: 1px dashed #0d6efd !important;
+}
+
+.reprint-table tbody tr.row-drag-fill td:first-child {
+  border-left: 2px solid #0d6efd !important;
+}
+
+.reprint-table tbody tr.row-drag-fill td:last-child {
+  border-right: 2px solid #0d6efd !important;
+}
+
+/* Cursor changes to crosshair globally while dragging */
+body.drag-filling,
+body.drag-filling * {
+  cursor: crosshair !important;
+  user-select: none !important;
 }
 
 /* Scrollbar styling */

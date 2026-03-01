@@ -375,6 +375,7 @@ export default function ReprintList() {
     dragFillEndRef.current = sourceIdx;
     setDragFill(state);
     setDragFillEnd(sourceIdx);
+    document.body.classList.add('drag-filling');
 
     function onMouseMove(ev) {
       const el = document.elementFromPoint(ev.clientX, ev.clientY);
@@ -396,6 +397,7 @@ export default function ReprintList() {
       dragFillEndRef.current = null;
       setDragFill(null);
       setDragFillEnd(null);
+      document.body.classList.remove('drag-filling');
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     }
@@ -863,7 +865,7 @@ export default function ReprintList() {
                   return (
                   <tr key={r.id}
                     data-row-idx={idx}
-                    className={`${isDup ? 'row-duplicate' : selectedIds.has(r.id) ? 'row-selected' : ''} ${isInDragFillRange(idx) ? 'row-drag-fill' : ''}`}
+                    className={`${isDup ? 'row-duplicate' : selectedIds.has(r.id) ? 'row-selected' : ''} ${dragFill?.sourceIdx === idx ? 'row-drag-source' : ''} ${isInDragFillRange(idx) ? 'row-drag-fill' : ''}`}
                     onClick={(e) => { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') toggleSelect(r.id, e.shiftKey); }}
                   >
                     <td className="text-center">

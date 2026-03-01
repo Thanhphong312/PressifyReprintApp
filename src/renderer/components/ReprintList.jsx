@@ -870,7 +870,7 @@ export default function ReprintList() {
                   return (
                   <tr key={r.id}
                     data-row-idx={idx}
-                    className={`${isDup ? 'row-duplicate' : selectedIds.has(r.id) ? 'row-selected' : ''} ${dragFill?.sourceIdx === idx ? 'row-drag-source' : ''} ${isInDragFillRange(idx) ? 'row-drag-fill' : ''} ${filledIds.has(r.id) ? 'row-filled' : ''}`}
+                    className={`${isDup ? 'row-duplicate' : selectedIds.has(r.id) ? 'row-selected' : ''} ${dragFill?.sourceIdx === idx ? 'row-drag-source' : ''} ${isInDragFillRange(idx) ? 'row-drag-fill' : ''}`}
                     onClick={(e) => { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') toggleSelect(r.id, e.shiftKey); }}
                   >
                     <td className="text-center">
@@ -907,7 +907,7 @@ export default function ReprintList() {
                         )}
                       </div>
                     </td>
-                    <td className="cell-order" style={{ position: 'relative' }}>
+                    <td className={`cell-order ${filledIds.has(r.id) ? 'cell-filled' : ''}`} style={{ position: 'relative' }}>
                       <EditableSelect
                         value={r.reason_reprint_id}
                         options={reasonOpts}

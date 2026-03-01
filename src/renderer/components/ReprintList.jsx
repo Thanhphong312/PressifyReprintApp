@@ -203,6 +203,8 @@ export default function ReprintList() {
   const [addNewModal, setAddNewModal] = useState(null); // { type, reprintId }
   const [copyMsg, setCopyMsg] = useState(null);
   const [newItemName, setNewItemName] = useState('');
+  const [dragFill, setDragFill] = useState(null); // { field, value, sourceIdx }
+  const [dragFillEnd, setDragFillEnd] = useState(null);
   const [activeDate, setActiveDate] = useState(() => {
     const now = new Date();
     const chi = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
@@ -213,6 +215,8 @@ export default function ReprintList() {
   });
 
   const loadingRef = useRef(false);
+  const dragFillRef = useRef(null);
+  const dragFillEndRef = useRef(null);
 
   async function loadData() {
     if (loadingRef.current) return;
@@ -361,6 +365,72 @@ export default function ReprintList() {
       alert('Error saving: ' + err.message);
     }
   }, [currentUser]);
+
+  // ─── Drag fill (spreadsheet-style) ───
+  function startDragFill(e, field, value, sourceIdx) {
+    e.preventDefault();
+    e.stopPropagation();
+    const state = { field, value, sourceIdx };
+    dragFillRef.current = state;
+    dragFillEndRef.current = sourceIdx;
+    setDragFill(state);
+    setDragFillEnd(sourceIdx);
+
+    function onMouseMove(ev) {
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const tr = el?.closest('tr[data-row-idx]');
+      if (tr) {
+        const idx = Number(tr.dataset.rowIdx);
+        dragFillEndRef.current = idx;
+        setDragFillEnd(idx);
+      }
+    }
+
+    function onMouseUp() {
+      const df = dragFillRef.current;
+      const endIdx = dragFillEndRef.current;
+      if (df && endIdx !== null && endIdx !== df.sourceIdx) {
+        applyDragFill(df.field, df.value, df.sourceIdx, endIdx);
+      }
+      dragFillRef.current = null;
+      dragFillEndRef.current = null;
+      setDragFill(null);
+      setDragFillEnd(null);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    }
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  async function applyDragFill(field, value, sourceIdx, endIdx) {
+    const from = Math.min(sourceIdx, endIdx);
+    const to = Math.max(sourceIdx, endIdx);
+    try {
+      for (let i = from; i <= to; i++) {
+        if (i === sourceIdx) continue;
+        const r = filteredByDate[i];
+        if (!r) continue;
+        await window.electronAPI.db.reprints.update(r.id, { [field]: value || '' });
+        await window.electronAPI.db.timelines.create({
+          user_id: currentUser.uid,
+          reprint_id: r.id,
+          note: `"${field}" updated by ${currentUser.name}`,
+        });
+      }
+      await loadData();
+    } catch (err) {
+      alert('Error updating: ' + err.message);
+    }
+  }
+
+  function isInDragFillRange(idx) {
+    if (!dragFill || dragFillEnd === null) return false;
+    const from = Math.min(dragFill.sourceIdx, dragFillEnd);
+    const to = Math.max(dragFill.sourceIdx, dragFillEnd);
+    return idx >= from && idx <= to && idx !== dragFill.sourceIdx;
+  }
 
   const ADD_NEW_CONFIG = {
     reason: { label: 'Reason', field: 'reason_reprint_id', api: window.electronAPI.db.reasons },
@@ -792,7 +862,8 @@ export default function ReprintList() {
                   const isDup = oid && orderDateCount[`${(r.created_at || '').substring(0, 10)}||${oid}`] > 1;
                   return (
                   <tr key={r.id}
-                    className={isDup ? 'row-duplicate' : selectedIds.has(r.id) ? 'row-selected' : ''}
+                    data-row-idx={idx}
+                    className={`${isDup ? 'row-duplicate' : selectedIds.has(r.id) ? 'row-selected' : ''} ${isInDragFillRange(idx) ? 'row-drag-fill' : ''}`}
                     onClick={(e) => { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') toggleSelect(r.id, e.shiftKey); }}
                   >
                     <td className="text-center">
@@ -829,7 +900,7 @@ export default function ReprintList() {
                         )}
                       </div>
                     </td>
-                    <td className="cell-order">
+                    <td className="cell-order" style={{ position: 'relative' }}>
                       <EditableSelect
                         value={r.reason_reprint_id}
                         options={reasonOpts}
@@ -837,6 +908,12 @@ export default function ReprintList() {
                         onSave={(v) => saveField(r.id, 'reason_reprint_id', v)}
                         onAddNew={() => { setAddNewModal({ type: 'reason', reprintId: r.id }); setNewItemName(''); }}
                       />
+                      {r.reason_reprint_id && (
+                        <div
+                          className="drag-fill-handle"
+                          onMouseDown={(e) => startDragFill(e, 'reason_reprint_id', r.reason_reprint_id, idx)}
+                        />
+                      )}
                     </td>
 
                     {/* ── Product ── */}

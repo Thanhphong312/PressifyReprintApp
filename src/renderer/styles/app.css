@@ -229,6 +229,36 @@ td:hover .drag-fill-handle {
   border-right: 2px solid #0d6efd !important;
 }
 
+/* Drag fill completed — marching ants border */
+@keyframes marching-ants {
+  to { background-position: 100% 100%; }
+}
+
+.reprint-table tbody tr.row-filled td {
+  background-color: #d4edda !important;
+  animation: filled-flash 0.4s ease;
+}
+
+.reprint-table tbody tr.row-filled td:first-child {
+  border-left: 2px dashed #198754 !important;
+}
+
+.reprint-table tbody tr.row-filled td:last-child {
+  border-right: 2px dashed #198754 !important;
+}
+
+.reprint-table tbody tr.row-filled:first-of-type td,
+.reprint-table tbody tr.row-filled td {
+  border-top: 1px dashed #198754 !important;
+  border-bottom: 1px dashed #198754 !important;
+}
+
+@keyframes filled-flash {
+  0% { background-color: #a3d9b1 !important; }
+  50% { background-color: #c8e6c9 !important; }
+  100% { background-color: #d4edda !important; }
+}
+
 /* Cursor changes to crosshair globally while dragging */
 body.drag-filling,
 body.drag-filling * {

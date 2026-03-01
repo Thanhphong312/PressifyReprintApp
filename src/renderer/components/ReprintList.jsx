@@ -205,6 +205,7 @@ export default function ReprintList() {
   const [newItemName, setNewItemName] = useState('');
   const [dragFill, setDragFill] = useState(null); // { field, value, sourceIdx }
   const [dragFillEnd, setDragFillEnd] = useState(null);
+  const [filledIds, setFilledIds] = useState(new Set()); // IDs just filled
   const [activeDate, setActiveDate] = useState(() => {
     const now = new Date();
     const chi = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
@@ -409,11 +410,13 @@ export default function ReprintList() {
   async function applyDragFill(field, value, sourceIdx, endIdx) {
     const from = Math.min(sourceIdx, endIdx);
     const to = Math.max(sourceIdx, endIdx);
+    const ids = new Set();
     try {
       for (let i = from; i <= to; i++) {
         if (i === sourceIdx) continue;
         const r = filteredByDate[i];
         if (!r) continue;
+        ids.add(r.id);
         await window.electronAPI.db.reprints.update(r.id, { [field]: value || '' });
         await window.electronAPI.db.timelines.create({
           user_id: currentUser.uid,
@@ -422,6 +425,8 @@ export default function ReprintList() {
         });
       }
       await loadData();
+      setFilledIds(ids);
+      setTimeout(() => setFilledIds(new Set()), 3000);
     } catch (err) {
       alert('Error updating: ' + err.message);
     }
@@ -865,7 +870,7 @@ export default function ReprintList() {
                   return (
                   <tr key={r.id}
                     data-row-idx={idx}
-                    className={`${isDup ? 'row-duplicate' : selectedIds.has(r.id) ? 'row-selected' : ''} ${dragFill?.sourceIdx === idx ? 'row-drag-source' : ''} ${isInDragFillRange(idx) ? 'row-drag-fill' : ''}`}
+                    className={`${isDup ? 'row-duplicate' : selectedIds.has(r.id) ? 'row-selected' : ''} ${dragFill?.sourceIdx === idx ? 'row-drag-source' : ''} ${isInDragFillRange(idx) ? 'row-drag-fill' : ''} ${filledIds.has(r.id) ? 'row-filled' : ''}`}
                     onClick={(e) => { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') toggleSelect(r.id, e.shiftKey); }}
                   >
                     <td className="text-center">

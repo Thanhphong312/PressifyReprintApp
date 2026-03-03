@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   log: (level, message, data) => ipcRenderer.invoke('log-from-renderer', level, message, data),
 
+
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     save: (config) => ipcRenderer.invoke('settings:save', config),

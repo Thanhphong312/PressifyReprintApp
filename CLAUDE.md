@@ -82,6 +82,8 @@ All CRUD resources follow the same pattern: `getAll` → GET, `create` → POST,
 | userReprints | `/api/user-reprints` |
 | reasons | `/api/reasons` |
 | orderTypes | `/api/order-types` |
+| reasonErrors | `/api/reason-errors` (Ly Do Loi — free text or predefined) |
+| reprintTypes | `/api/reprint-types` (multi-type reprint categories) |
 | timelines | `/api/timelines/{reprintId}` (getByReprint) / `/api/timelines` (create) |
 
 **Auth endpoints:** `POST /api/login`, `POST /api/logout`, `GET /api/me`
@@ -111,7 +113,8 @@ All CRUD endpoints return data as **objects keyed by ID** (e.g. `{"1": {"name": 
 
 Uses `HashRouter` (required for Electron's `file://` protocol). Routes are wrapped in a `PrivateRoute` component that checks auth state and role permissions.
 
-- `/reprints` — All authenticated users (default route after login)
+- `/reprints` → redirects to `/reprints/:firstTypeId` (ReprintRedirect)
+- `/reprints/:typeId` — All authenticated users; filters reprints by type; sidebar menu is dynamically generated from `reprintTypes`
 - `/dashboard`, `/products`, `/permission`, `/settings` — Admin only
 - Non-admin users are redirected to `/reprints` if they try to access admin routes
 
@@ -119,15 +122,29 @@ Uses `HashRouter` (required for Electron's `file://` protocol). Routes are wrapp
 
 | Component | Purpose |
 |-----------|---------|
-| `Layout.jsx` | Collapsible sidebar + topbar shell |
+| `Layout.jsx` | Collapsible sidebar + topbar shell; sidebar menu items built from `reprintTypes` |
 | `Dashboard.jsx` | Stats cards + Chart.js charts (by status, reason, support user) |
-| `ReprintList.jsx` | Main CRUD table for reprints with search/filter/status |
+| `ReprintList.jsx` | Main CRUD table for reprints with search/filter/status/type; ~1200 lines |
 | `ReprintForm.jsx` | Modal form for add/edit reprint records |
 | `ProductList.jsx` | Product, Color & Size management (3 independent lists) |
 | `ProductImport.jsx` | CSV import via PapaParse (expects columns: product_name, color, size) |
-| `Permission.jsx` | Admin-only user/reason/order-type management |
+| `Permission.jsx` | Admin-only user/reason/order-type/reason-error/reprint-type management |
 | `Settings.jsx` | Admin-only API connection settings (URL, timeout, test connection) |
 | `Timeline.jsx` | Activity log per reprint with VN/US timezone display |
+
+### Inline Editing Patterns (ReprintList.jsx)
+
+Three inline-edit cell components render inside table rows:
+
+- **`EditableText`** — Single-line text input; saves on blur/Enter
+- **`EditableSelect`** — Dropdown with search filter + "Add New" button (opens modal)
+- **`EditableCombo`** — Hybrid for *Ly Do Loi* (`reason_error`): free-text box + dropdown; saves to either `reason_error_id` (select) or `reason_error` (free text)
+
+**Drag-fill** (spreadsheet-style): A drag handle appears on hover for the reason cell. Dragging it down fills the same value across multiple rows and creates timeline entries for each. Visual states:
+- Source row: blue background + 2px blue outline (`.row-drag-source`)
+- Target rows: dashed blue border + light blue bg (`.row-drag-fill`)
+- After fill: 3-second green flash + green outline on filled cells (`.cell-filled`, `@keyframes filled-flash`)
+- Global cursor: `crosshair` during drag (`body.drag-filling`)
 
 ### Build Pipeline
 

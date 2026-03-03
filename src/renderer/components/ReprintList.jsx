@@ -306,6 +306,10 @@ export default function ReprintList() {
   const [dragFill, setDragFill] = useState(null); // { field, value, sourceIdx }
   const [dragFillEnd, setDragFillEnd] = useState(null);
   const [filledIds, setFilledIds] = useState(new Set()); // IDs just filled
+  const [showOrderFillModal, setShowOrderFillModal] = useState(false);
+  const [orderFillText, setOrderFillText] = useState('');
+  const [orderFillProgress, setOrderFillProgress] = useState(null); // null | { done, total }
+
   const [activeDate, setActiveDate] = useState(() => {
     const now = new Date();
     const chi = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
@@ -387,6 +391,7 @@ export default function ReprintList() {
   useEffect(() => {
     setSelectedIds(new Set());
   }, [typeId]);
+
 
   useEffect(() => {
     async function init() {
@@ -621,6 +626,62 @@ export default function ReprintList() {
     }
   }
 
+  async function handleOrderFill() {
+    const parsedIds = orderFillText
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parsedIds.length === 0) return;
+
+    // Empty slots for current type + today's date tab, sorted oldest first
+    const targetDate = activeDate || new Date().toISOString().substring(0, 10);
+    const emptySlots = Object.entries(reprints)
+      .map(([id, data]) => ({ id, ...data }))
+      .filter((r) => {
+        const matchType = typeId
+          ? String(r.reprint_type_id) === String(typeId)
+          : !r.reprint_type_id;
+        const matchDate = getDateKey(r.created_at) === targetDate;
+        return matchType && matchDate && !(r.order_id || '').trim();
+      })
+      .sort((a, b) => Number(a.id) - Number(b.id));
+
+    const firstSupport = supportUserOpts[0]?.value || null;
+    setOrderFillProgress({ done: 0, total: parsedIds.length });
+
+    try {
+      for (let i = 0; i < parsedIds.length; i++) {
+        const orderId = parsedIds[i];
+        if (i < emptySlots.length) {
+          const slot = emptySlots[i];
+          await window.electronAPI.db.reprints.update(slot.id, { order_id: orderId });
+          await window.electronAPI.db.timelines.create({
+            user_id: currentUser.uid,
+            reprint_id: slot.id,
+            note: `order_id set to "${orderId}" by ${currentUser.name}`,
+          });
+        } else {
+          const createData = { order_id: orderId, support_id: firstSupport, status: 'not_yet' };
+          if (typeId) createData.reprint_type_id = typeId;
+          const newId = await window.electronAPI.db.reprints.create(createData);
+          await window.electronAPI.db.timelines.create({
+            user_id: currentUser.uid,
+            reprint_id: newId,
+            note: `Reprint created with order_id "${orderId}" by ${currentUser.name}`,
+          });
+        }
+        setOrderFillProgress({ done: i + 1, total: parsedIds.length });
+      }
+      await loadData();
+      setShowOrderFillModal(false);
+      setOrderFillText('');
+    } catch (err) {
+      alert('Error filling order IDs: ' + err.message);
+    } finally {
+      setOrderFillProgress(null);
+    }
+  }
+
   async function handleDelete(id) {
     if (confirm('Are you sure you want to delete this reprint?')) {
       await window.electronAPI.db.reprints.delete(id);
@@ -851,6 +912,7 @@ export default function ReprintList() {
           </>)}
         </div>
         <div className="d-flex gap-2">
+          <button className="btn btn-outline-secondary" onClick={() => setShowOrderFillModal(true)}>Fill Order IDs</button>
           <button className="btn btn-primary" onClick={handleAdd}>+ Add Reprint</button>
         </div>
       </div>
@@ -1140,6 +1202,56 @@ export default function ReprintList() {
       )}
 
       {timelineId && <Timeline reprintId={timelineId} onClose={() => setTimelineId(null)} />}
+
+      {showOrderFillModal && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header py-2">
+                <h6 className="modal-title">Fill Order IDs</h6>
+                <button className="btn-close" disabled={!!orderFillProgress} onClick={() => { setShowOrderFillModal(false); setOrderFillText(''); setOrderFillProgress(null); }}></button>
+              </div>
+              <div className="modal-body">
+                <p className="text-muted small mb-2">
+                  Paste order IDs separated by commas or newlines.<br />
+                  Accepts: <code>123,124,125</code> · <code>S123,S124</code> · one per line.
+                  <br />Empty reprints in the current tab are filled first; new ones are created for the rest.
+                </p>
+                <textarea
+                  className="form-control font-monospace"
+                  rows={8}
+                  placeholder={"123\n124\n125\n\nor S123,S124,S125"}
+                  value={orderFillText}
+                  onChange={(e) => setOrderFillText(e.target.value)}
+                  autoFocus
+                  disabled={!!orderFillProgress}
+                />
+                {orderFillProgress && (
+                  <div className="mt-2">
+                    <div className="progress">
+                      <div
+                        className="progress-bar progress-bar-striped progress-bar-animated"
+                        style={{ width: `${(orderFillProgress.done / orderFillProgress.total) * 100}%` }}
+                      >
+                        {orderFillProgress.done}/{orderFillProgress.total}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer py-2">
+                <span className="text-muted small me-auto">
+                  {orderFillText.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean).length} IDs detected
+                </span>
+                <button className="btn btn-secondary btn-sm" disabled={!!orderFillProgress} onClick={() => { setShowOrderFillModal(false); setOrderFillText(''); setOrderFillProgress(null); }}>Cancel</button>
+                <button className="btn btn-primary btn-sm" onClick={handleOrderFill} disabled={!orderFillText.trim() || !!orderFillProgress}>
+                  {orderFillProgress ? 'Filling…' : 'Fill'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {addNewModal && (
         <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>

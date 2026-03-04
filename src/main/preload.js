@@ -11,6 +11,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   log: (level, message, data) => ipcRenderer.invoke('log-from-renderer', level, message, data),
 
+  scanner: {
+    onDeviceChanged: (cb) => {
+      const fn = (_, data) => cb(data);
+      ipcRenderer.on('usb-hid-changed', fn);
+      return () => ipcRenderer.removeListener('usb-hid-changed', fn);
+    },
+    getDevices: () => ipcRenderer.invoke('scanner:getDevices'),
+  },
+
 
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),

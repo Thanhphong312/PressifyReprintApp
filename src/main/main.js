@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
+const { execFile } = require('child_process');
 const path = require('path');
 const Store = require('electron-store');
 const logger = require('./logger');
@@ -59,6 +60,49 @@ const createWindow = () => {
   }
 };
 
+// ─── USB HID scanner detection ────────────────────────────────────────────
+// Use execFile to call powershell.exe directly — no cmd.exe shell, no quoting issues
+function runPS(script) {
+  return new Promise((resolve) => {
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', script],
+      { timeout: 10000 },
+      (err, stdout, stderr) => resolve({
+        out: (stdout || '').trim(),
+        err: err?.message || '',
+        stderr: (stderr || '').trim(),
+      })
+    );
+  });
+}
+
+// WMI filter syntax — no $_ / Where-Object needed
+const PS_GET_HID  = `Get-WmiObject -Class Win32_PnPEntity -Filter "PNPClass='HIDClass'" | Select-Object -ExpandProperty PNPDeviceID`;
+const PS_GET_ALL  = `Get-WmiObject -Class Win32_PnPEntity | Where-Object {$_.PNPClass} | Select-Object Name,PNPDeviceID,PNPClass | ConvertTo-Json -Compress`;
+
+async function getHidIds() {
+  const { out } = await runPS(PS_GET_HID);
+  return out.split('\n').map((l) => l.trim()).filter(Boolean);
+}
+
+let prevHidIds = [];
+let hidPollTimer = null;
+
+async function startHidPolling() {
+  prevHidIds = await getHidIds();
+  hidPollTimer = setInterval(async () => {
+    if (!mainWindow || mainWindow.isDestroyed()) { clearInterval(hidPollTimer); return; }
+    const current = await getHidIds();
+    const added = current.filter((d) => !prevHidIds.includes(d));
+    const removed = prevHidIds.filter((d) => !current.includes(d));
+    if (added.length) mainWindow.webContents.send('usb-hid-changed', { type: 'connected', added });
+    else if (removed.length) mainWindow.webContents.send('usb-hid-changed', { type: 'disconnected', removed });
+    prevHidIds = current;
+  }, 2000);
+}
+// ──────────────────────────────────────────────────────────────────────────
+
 app.whenReady().then(async () => {
   logger.info('App ready', { version: app.getVersion(), platform: process.platform });
 
@@ -74,6 +118,11 @@ app.whenReady().then(async () => {
   // Core IPC
   ipcMain.handle('get-app-version', () => app.getVersion());
 
+  ipcMain.handle('scanner:getDevices', async () => {
+    const [hids, all] = await Promise.all([getHidIds(), runPS(PS_GET_ALL)]);
+    return { hids, raw: all.out, err: all.err };
+  });
+
   ipcMain.handle('log-from-renderer', (_, level, message, data) => {
     if (['info', 'warn', 'error'].includes(level)) {
       logger[level](`[renderer] ${message}`, data);
@@ -81,6 +130,7 @@ app.whenReady().then(async () => {
   });
 
   createWindow();
+  startHidPolling();
 });
 
 app.on('window-all-closed', () => {

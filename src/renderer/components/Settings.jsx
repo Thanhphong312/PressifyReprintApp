@@ -4,13 +4,18 @@ export default function Settings() {
   const [apiBaseUrl, setApiBaseUrl] = useState('');
   const [apiTimeout, setApiTimeout] = useState(10000);
   const [sessionLifetime, setSessionLifetime] = useState(2592000);
+  const [timeblockEnabled, setTimeblockEnabled] = useState(false);
+  const [timeblock, setTimeblock] = useState('17:00');
+  const [timeunlock, setTimeunlock] = useState('06:00');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingSession, setSavingSession] = useState(false);
+  const [savingLock, setSavingLock] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [saveMessage, setSaveMessage] = useState(null);
   const [sessionMessage, setSessionMessage] = useState(null);
+  const [lockMessage, setLockMessage] = useState(null);
   const [appVersion, setAppVersion] = useState('');
 
   useEffect(() => {
@@ -29,11 +34,24 @@ export default function Settings() {
       setApiBaseUrl(config.apiBaseUrl || '');
       setApiTimeout(config.apiTimeout || 10000);
       if (reprintConfig.session) setSessionLifetime(reprintConfig.session);
+      setTimeblockEnabled(!!reprintConfig.timeblock_enabled);
+      if (reprintConfig.timeblock) setTimeblock(reprintConfig.timeblock);
+      if (reprintConfig.timeunlock) setTimeunlock(reprintConfig.timeunlock);
     } catch (err) {
       console.error('Failed to load settings:', err);
     } finally {
       setLoading(false);
     }
+  }
+
+  // Builds the full reprintSettings object so each save section doesn't overwrite others
+  function buildReprintSettings() {
+    return {
+      session: parseInt(sessionLifetime, 10) || 2592000,
+      timeblock_enabled: timeblockEnabled,
+      timeblock,
+      timeunlock,
+    };
   }
 
   async function handleSave(e) {
@@ -86,12 +104,26 @@ export default function Settings() {
     setSavingSession(true);
     setSessionMessage(null);
     try {
-      await window.electronAPI.db.reprintSettings.save({ session: parseInt(sessionLifetime, 10) || 2592000 });
+      await window.electronAPI.db.reprintSettings.save(buildReprintSettings());
       setSessionMessage({ type: 'success', text: 'Session lifetime saved.' });
     } catch (err) {
       setSessionMessage({ type: 'danger', text: `Failed to save: ${err.message}` });
     } finally {
       setSavingSession(false);
+    }
+  }
+
+  async function handleSaveLock(e) {
+    e.preventDefault();
+    setSavingLock(true);
+    setLockMessage(null);
+    try {
+      await window.electronAPI.db.reprintSettings.save(buildReprintSettings());
+      setLockMessage({ type: 'success', text: 'Edit lock settings saved.' });
+    } catch (err) {
+      setLockMessage({ type: 'danger', text: `Failed to save: ${err.message}` });
+    } finally {
+      setSavingLock(false);
     }
   }
 
@@ -238,6 +270,83 @@ export default function Settings() {
                 <><span className="spinner-border spinner-border-sm me-1"></span>Saving...</>
               ) : (
                 'Save Session Lifetime'
+              )}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div className="card mt-4" style={{ maxWidth: '600px' }}>
+        <div className="card-body">
+          <h6 className="card-title mb-3">Edit Lock Schedule</h6>
+          <p className="text-muted small mb-3">
+            After the lock time, non-admin users cannot edit, add, or bulk-update reprints until the unlock time.
+            Times are in <strong>America/Chicago (CT)</strong>.
+          </p>
+
+          {lockMessage && (
+            <div className={`alert alert-${lockMessage.type} alert-dismissible fade show`} role="alert">
+              {lockMessage.text}
+              <button type="button" className="btn-close" onClick={() => setLockMessage(null)}></button>
+            </div>
+          )}
+
+          <form onSubmit={handleSaveLock}>
+            <div className="mb-3">
+              <div className="form-check">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  id="timeblockEnabled"
+                  checked={timeblockEnabled}
+                  onChange={(e) => setTimeblockEnabled(e.target.checked)}
+                />
+                <label className="form-check-label" htmlFor="timeblockEnabled">
+                  Enable edit lock
+                </label>
+              </div>
+            </div>
+
+            {timeblockEnabled && (
+              <>
+                <div className="row g-3 mb-3">
+                  <div className="col-6">
+                    <label className="form-label">
+                      🔒 Lock Time <span className="text-muted">(Block)</span>
+                    </label>
+                    <input
+                      type="time"
+                      className="form-control"
+                      value={timeblock}
+                      onChange={(e) => setTimeblock(e.target.value)}
+                    />
+                    <div className="form-text">Editing locks at this time each day.</div>
+                  </div>
+                  <div className="col-6">
+                    <label className="form-label">
+                      🔓 Unlock Time
+                    </label>
+                    <input
+                      type="time"
+                      className="form-control"
+                      value={timeunlock}
+                      onChange={(e) => setTimeunlock(e.target.value)}
+                    />
+                    <div className="form-text">Editing re-enables at this time.</div>
+                  </div>
+                </div>
+                <div className="alert alert-info py-2 small mb-3">
+                  Example: Lock at <strong>17:00</strong>, Unlock at <strong>06:00</strong> → editing is blocked from
+                  5 PM until 6 AM the next morning. Admin users are never locked.
+                </div>
+              </>
+            )}
+
+            <button type="submit" className="btn btn-primary" disabled={savingLock}>
+              {savingLock ? (
+                <><span className="spinner-border spinner-border-sm me-1"></span>Saving...</>
+              ) : (
+                'Save Lock Settings'
               )}
             </button>
           </form>

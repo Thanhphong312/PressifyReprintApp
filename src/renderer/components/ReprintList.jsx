@@ -28,7 +28,7 @@ function extractOrderId(val) {
 
 // ─── Inline editable cell ───
 
-function EditableText({ value, onSave, className, placeholder }) {
+function EditableText({ value, onSave, className, placeholder, readOnly }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value || '');
   const inputRef = useRef(null);
@@ -43,7 +43,7 @@ function EditableText({ value, onSave, className, placeholder }) {
 
   if (!editing) {
     return (
-      <span className={`editable-cell ${className || ''}`} onClick={() => setEditing(true)} title={value || ''}>
+      <span className={`editable-cell ${className || ''}`} onClick={readOnly ? undefined : () => setEditing(true)} title={value || ''} style={readOnly ? { cursor: 'default' } : undefined}>
         {value || <span className="text-muted">-</span>}
       </span>
     );
@@ -63,7 +63,7 @@ function EditableText({ value, onSave, className, placeholder }) {
   );
 }
 
-function EditableSelect({ value, options, onSave, className, displayValue, onAddNew }) {
+function EditableSelect({ value, options, onSave, className, displayValue, onAddNew, readOnly }) {
   const [editing, setEditing] = useState(false);
   const [search, setSearch] = useState('');
   const inputRef = useRef(null);
@@ -101,7 +101,7 @@ function EditableSelect({ value, options, onSave, className, displayValue, onAdd
 
   if (!editing) {
     return (
-      <span className={`editable-cell ${className || ''}`} onClick={() => setEditing(true)}>
+      <span className={`editable-cell ${className || ''}`} onClick={readOnly ? undefined : () => setEditing(true)} style={readOnly ? { cursor: 'default' } : undefined}>
         {displayValue || <span className="text-muted">-</span>}
       </span>
     );
@@ -146,7 +146,7 @@ function EditableSelect({ value, options, onSave, className, displayValue, onAdd
   );
 }
 
-function EditableCombo({ value, textValue, options, onSaveSelect, onSaveText, className, displayValue, onAddNew }) {
+function EditableCombo({ value, textValue, options, onSaveSelect, onSaveText, className, displayValue, onAddNew, readOnly }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -192,7 +192,7 @@ function EditableCombo({ value, textValue, options, onSaveSelect, onSaveText, cl
   if (!editing) {
     const display = displayValue || textValue;
     return (
-      <span className={`editable-cell ${className || ''}`} onClick={() => setEditing(true)}>
+      <span className={`editable-cell ${className || ''}`} onClick={readOnly ? undefined : () => setEditing(true)} style={readOnly ? { cursor: 'default' } : undefined}>
         {display || <span className="text-muted">-</span>}
       </span>
     );
@@ -246,7 +246,7 @@ function EditableCombo({ value, textValue, options, onSaveSelect, onSaveText, cl
   );
 }
 
-function EditableDatetime({ value, onSave, className }) {
+function EditableDatetime({ value, onSave, className, readOnly }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value || '');
   const inputRef = useRef(null);
@@ -261,7 +261,7 @@ function EditableDatetime({ value, onSave, className }) {
 
   if (!editing) {
     return (
-      <span className={`editable-cell ${className || ''}`} onClick={() => setEditing(true)}>
+      <span className={`editable-cell ${className || ''}`} onClick={readOnly ? undefined : () => setEditing(true)} style={readOnly ? { cursor: 'default' } : undefined}>
         {value ? <span className="small">{value}</span> : <span className="text-muted">-</span>}
       </span>
     );
@@ -319,9 +319,18 @@ export default function ReprintList() {
     return `${y}-${m}-${d}`;
   });
 
+  const [scannerConnected, setScannerConnected] = useState(false);
+  const [scannerName, setScannerName] = useState('');
+  const [lastScan, setLastScan] = useState(null); // { orderId, reprintId }
+  const [scanTestResult, setScanTestResult] = useState(null);
+  const [reprintSettings, setReprintSettings] = useState({});
+
   const loadingRef = useRef(false);
   const dragFillRef = useRef(null);
   const dragFillEndRef = useRef(null);
+  const scanBufRef = useRef('');
+  const scanTimerRef = useRef(null);
+  const processScanRef = useRef(null);
 
   async function loadData() {
     if (loadingRef.current) return;
@@ -391,6 +400,58 @@ export default function ReprintList() {
   useEffect(() => {
     setSelectedIds(new Set());
   }, [typeId]);
+
+  // ─── USB HID connect / disconnect from main process ───
+  useEffect(() => {
+    if (!window.electronAPI.scanner) return;
+
+    // Set initial state from current device list (handles scanner already plugged in at startup)
+    window.electronAPI.scanner.getDevices().then((result) => {
+      const count = result?.hids?.length ?? 0;
+      if (count > 0) {
+        setScannerConnected(true);
+        setScannerName(`${count} HID`);
+      }
+    }).catch(() => {});
+
+    const cleanup = window.electronAPI.scanner.onDeviceChanged((data) => {
+      if (data.type === 'connected') {
+        setScannerConnected(true);
+        setScannerName(data.added?.[0] || 'Scanner');
+      } else {
+        setScannerConnected(false);
+        setScannerName('');
+      }
+    });
+    return cleanup;
+  }, []);
+
+  // ─── Load reprint settings (timeblock etc.) once on mount ───
+  useEffect(() => {
+    window.electronAPI.db.reprintSettings.get()
+      .then(setReprintSettings)
+      .catch(() => {});
+  }, []);
+
+  // ─── Global keyboard listener (scanner sends keystrokes) ───
+  useEffect(() => {
+    function flush() {
+      const buf = scanBufRef.current;
+      scanBufRef.current = '';
+      if (buf.length >= 3) processScanRef.current?.(buf);
+    }
+    function onKeyDown(e) {
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === 'Enter' || e.key === 'Tab') { clearTimeout(scanTimerRef.current); flush(); return; }
+      if (e.key.length !== 1) return;
+      scanBufRef.current += e.key;
+      clearTimeout(scanTimerRef.current);
+      scanTimerRef.current = setTimeout(flush, 400);
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => { document.removeEventListener('keydown', onKeyDown); clearTimeout(scanTimerRef.current); };
+  }, []);
 
 
   useEffect(() => {
@@ -862,11 +923,68 @@ export default function ReprintList() {
     { value: 'Gildan', label: 'Gildan' },
   ];
 
+  // ─── Edit lock (timeblock / timeunlock) ───
+  const editLocked = (() => {
+    if (currentUser?.role === 'admin') return false;
+    if (!reprintSettings?.timeblock_enabled) return false;
+    const blockStr = reprintSettings.timeblock;
+    if (!blockStr) return false;
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+    const cur = now.getHours() * 60 + now.getMinutes();
+    const [bh, bm] = blockStr.split(':').map(Number);
+    const block = bh * 60 + bm;
+    const unlockStr = reprintSettings.timeunlock;
+    if (!unlockStr) return cur >= block;
+    const [uh, um] = unlockStr.split(':').map(Number);
+    const unlock = uh * 60 + um;
+    // overnight span (e.g., block=17:00, unlock=06:00): locked from 17:00→midnight→06:00
+    if (block > unlock) return cur >= block || cur < unlock;
+    // same-day span (e.g., block=12:00, unlock=13:00)
+    return cur >= block && cur < unlock;
+  })();
+
+  // Refreshed every render — keydown listener always calls latest version
+  processScanRef.current = async (raw) => {
+    if (!scannerConnected) return;
+    const orderId = extractOrderId(raw);
+    if (!orderId) return;
+    try {
+      const createData = { order_id: orderId, support_id: supportUserOpts[0]?.value || null, status: 'not_yet' };
+      if (typeId) createData.reprint_type_id = typeId;
+      const newId = await window.electronAPI.db.reprints.create(createData);
+      await window.electronAPI.db.timelines.create({
+        user_id: currentUser.uid, reprint_id: newId,
+        note: `Reprint created with order_id "${orderId}" via scanner by ${currentUser.name}`,
+      });
+      await loadData();
+      setLastScan({ orderId, reprintId: newId });
+      setTimeout(() => setLastScan(null), 4000);
+    } catch (err) {
+      alert('Scanner error: ' + err.message);
+    }
+  };
+
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div className="d-flex gap-2 align-items-center">
           <h4 className="mb-0">{currentTypeName}</h4>
+          <span
+            className={`badge ${scannerConnected ? 'bg-success' : 'bg-secondary'}`}
+            style={{ fontSize: '0.72rem', fontWeight: 'normal', cursor: 'default' }}
+            title={scannerConnected ? `Scanner: ${scannerName}` : 'No scanner detected'}
+          >
+            <span style={{ display:'inline-block', width:7, height:7, borderRadius:'50%', background: scannerConnected ? '#fff' : '#888', marginRight:5 }} />
+            {scannerConnected ? 'Scanner' : 'No Scanner'}
+          </span>
+          <button className="btn btn-sm btn-outline-info" style={{ fontSize: '0.72rem' }}
+            onClick={async () => {
+              setScanTestResult({ loading: true });
+              const r = await window.electronAPI.scanner.getDevices();
+              setScanTestResult(r);
+            }}>
+            Test
+          </button>
           {selectedIds.size > 0 && (<>
             <button className="btn btn-sm btn-outline-secondary" onClick={() => {
               const lines = [];
@@ -903,19 +1021,29 @@ export default function ReprintList() {
             }}>
               Copy with Note ({selectedIds.size})
             </button>
-            <button className="btn btn-sm btn-info" onClick={handleProcessingSelected}>
+            <button className="btn btn-sm btn-info" onClick={handleProcessingSelected} disabled={editLocked}>
               Processing ({selectedIds.size})
             </button>
-            <button className="btn btn-sm btn-success" onClick={handleCompleteSelected}>
+            <button className="btn btn-sm btn-success" onClick={handleCompleteSelected} disabled={editLocked}>
               Complete Selected ({selectedIds.size})
             </button>
           </>)}
         </div>
         <div className="d-flex gap-2">
-          <button className="btn btn-outline-secondary" onClick={() => setShowOrderFillModal(true)}>Fill Order IDs</button>
-          <button className="btn btn-primary" onClick={handleAdd}>+ Add Reprint</button>
+          <button className="btn btn-outline-secondary" onClick={() => setShowOrderFillModal(true)} disabled={editLocked}>Fill Order IDs</button>
+          <button className="btn btn-primary" onClick={handleAdd} disabled={editLocked}>+ Add Reprint</button>
         </div>
       </div>
+
+      {editLocked && (
+        <div className="alert alert-warning d-flex align-items-center gap-2 py-2 mb-3">
+          <span style={{ fontSize: '1.1rem' }}>🔒</span>
+          <span>
+            <strong>Editing locked</strong> after {reprintSettings.timeblock} CT.
+            {reprintSettings.timeunlock && <> Unlocks at <strong>{reprintSettings.timeunlock} CT</strong>.</>}
+          </span>
+        </div>
+      )}
 
       <div className="card mb-3">
         <div className="card-body py-2">
@@ -1047,6 +1175,7 @@ export default function ReprintList() {
                         options={supportUserOpts}
                         displayValue={users[r.support_id]?.name}
                         onSave={(v) => saveField(r.id, 'support_id', v)}
+                        readOnly={editLocked}
                       />
                     </td>
                     <td className="cell-order">
@@ -1056,6 +1185,7 @@ export default function ReprintList() {
                           className="fw-semibold"
                           placeholder="Order ID"
                           onSave={(v) => saveField(r.id, 'order_id', extractOrderId(v))}
+                          readOnly={editLocked}
                         />
                         {r.order_id && (
                           <button
@@ -1076,8 +1206,9 @@ export default function ReprintList() {
                         displayValue={reasons[r.reason_reprint_id]?.name}
                         onSave={(v) => saveField(r.id, 'reason_reprint_id', v)}
                         onAddNew={() => { setAddNewModal({ type: 'reason', reprintId: r.id }); setNewItemName(''); }}
+                        readOnly={editLocked}
                       />
-                      {r.reason_reprint_id && (
+                      {r.reason_reprint_id && !editLocked && (
                         <div
                           className="drag-fill-handle"
                           onMouseDown={(e) => startDragFill(e, 'reason_reprint_id', r.reason_reprint_id, idx)}
@@ -1087,7 +1218,7 @@ export default function ReprintList() {
 
                     {/* ── Product ── */}
                     <td className="cell-product cell-note">
-                      <EditableText value={r.note} placeholder="Note" onSave={(v) => saveField(r.id, 'note', v)} />
+                      <EditableText value={r.note} placeholder="Note" onSave={(v) => saveField(r.id, 'note', v)} readOnly={editLocked} />
                     </td>
                     <td className="cell-product">
                       <EditableSelect
@@ -1096,6 +1227,7 @@ export default function ReprintList() {
                         displayValue={productReprints[r.product_reprint_id]?.name}
                         onSave={(v) => saveField(r.id, 'product_reprint_id', v)}
                         onAddNew={() => { setAddNewModal({ type: 'product', reprintId: r.id }); setNewItemName(''); }}
+                        readOnly={editLocked}
                       />
                     </td>
                     <td className="cell-product">
@@ -1105,6 +1237,7 @@ export default function ReprintList() {
                         displayValue={sizeReprints[r.size_reprint_id]?.name}
                         onSave={(v) => saveField(r.id, 'size_reprint_id', v)}
                         onAddNew={() => { setAddNewModal({ type: 'size', reprintId: r.id }); setNewItemName(''); }}
+                        readOnly={editLocked}
                       />
                     </td>
                     <td className="cell-product">
@@ -1114,6 +1247,7 @@ export default function ReprintList() {
                         displayValue={colorReprints[r.color_reprint_id]?.name}
                         onSave={(v) => saveField(r.id, 'color_reprint_id', v)}
                         onAddNew={() => { setAddNewModal({ type: 'color', reprintId: r.id }); setNewItemName(''); }}
+                        readOnly={editLocked}
                       />
                     </td>
                     <td className="cell-product">
@@ -1122,6 +1256,7 @@ export default function ReprintList() {
                         options={brandOpts}
                         displayValue={r.brand || null}
                         onSave={(v) => saveField(r.id, 'brand', v)}
+                        readOnly={editLocked}
                       />
                     </td>
 
@@ -1135,6 +1270,7 @@ export default function ReprintList() {
                         onSaveSelect={(v) => saveField(r.id, 'reason_error_id', v)}
                         onSaveText={(v) => saveField(r.id, 'reason_error', v)}
                         onAddNew={() => { setAddNewModal({ type: 'reasonError', reprintId: r.id }); setNewItemName(''); }}
+                        readOnly={editLocked}
                       />
                     </td>
                     <td className="cell-error">
@@ -1144,6 +1280,7 @@ export default function ReprintList() {
                         displayValue={userReprints[r.user_error_id]?.name}
                         onSave={(v) => saveField(r.id, 'user_error_id', v)}
                         onAddNew={() => { setAddNewModal({ type: 'userReprint', reprintId: r.id, field: 'user_error_id' }); setNewItemName(''); }}
+                        readOnly={editLocked}
                       />
                     </td>
                     <td className="cell-error">
@@ -1153,6 +1290,7 @@ export default function ReprintList() {
                         displayValue={userReprints[r.user_note]?.name}
                         onSave={(v) => saveField(r.id, 'user_note', v)}
                         onAddNew={() => { setAddNewModal({ type: 'userReprint', reprintId: r.id, field: 'user_note' }); setNewItemName(''); }}
+                        readOnly={editLocked}
                       />
                     </td>
 
@@ -1167,12 +1305,14 @@ export default function ReprintList() {
                           </span>
                         }
                         onSave={(v) => saveStatus(r.id, v)}
+                        readOnly={editLocked}
                       />
                     </td>
                     <td className="cell-status">
                       <EditableDatetime
                         value={r.finished_date}
                         onSave={(v) => saveField(r.id, 'finished_date', v)}
+                        readOnly={editLocked}
                       />
                     </td>
 
@@ -1202,6 +1342,45 @@ export default function ReprintList() {
       )}
 
       {timelineId && <Timeline reprintId={timelineId} onClose={() => setTimelineId(null)} />}
+
+      {lastScan && (
+        <div style={{ position:'fixed', bottom:20, left:'50%', transform:'translateX(-50%)', zIndex:9999, minWidth:260, textAlign:'center' }}>
+          <div className="alert alert-success py-2 px-4 mb-0 shadow">
+            <strong>&#128247; {lastScan.orderId}</strong>
+            <span className="ms-2 text-muted small">→ reprint #{lastScan.reprintId}</span>
+          </div>
+        </div>
+      )}
+
+      {scanTestResult && (
+        <div className="modal d-block" style={{ backgroundColor:'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div className="modal-content">
+              <div className="modal-header py-2">
+                <h6 className="modal-title">Scanner Device Test</h6>
+                <button className="btn-close" onClick={() => setScanTestResult(null)} />
+              </div>
+              <div className="modal-body">
+                {scanTestResult.loading ? <p className="text-muted">Running PowerShell…</p> : (<>
+                  <p className="mb-1"><strong>HID devices detected ({scanTestResult.hids?.length ?? 0}):</strong></p>
+                  {scanTestResult.hids?.length > 0
+                    ? <ul className="small mb-3">{scanTestResult.hids.map((d, i) => <li key={i} className="font-monospace">{d}</li>)}</ul>
+                    : <p className="text-warning small mb-2">No HID* devices found — cắm máy rồi bấm Test lại</p>
+                  }
+                  {scanTestResult.err && <div className="alert alert-danger py-1 small mb-2">{scanTestResult.err}</div>}
+                  <p className="mb-1 small text-muted">All present devices (raw JSON):</p>
+                  <pre className="bg-light p-2 rounded small" style={{ maxHeight:300, overflowY:'auto', whiteSpace:'pre-wrap', wordBreak:'break-all' }}>
+                    {scanTestResult.raw || '(empty)'}
+                  </pre>
+                </>)}
+              </div>
+              <div className="modal-footer py-2">
+                <button className="btn btn-secondary btn-sm" onClick={() => setScanTestResult(null)}>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showOrderFillModal && (
         <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>

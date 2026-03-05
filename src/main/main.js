@@ -78,7 +78,7 @@ function runPS(script) {
 }
 
 // WMI filter syntax — no $_ / Where-Object needed
-const PS_GET_HID  = `Get-WmiObject -Class Win32_PnPEntity -Filter "PNPClass='HIDClass'" | Select-Object -ExpandProperty PNPDeviceID`;
+const PS_GET_HID  = `Get-WmiObject -Class Win32_PnPEntity -Filter "PNPClass='HIDClass'" | Where-Object { $_.Name -notmatch 'keyboard|mouse|pointer|touchpad|trackpad|gamepad|joystick' } | Select-Object -ExpandProperty PNPDeviceID`;
 const PS_GET_ALL  = `Get-WmiObject -Class Win32_PnPEntity | Where-Object {$_.PNPClass} | Select-Object Name,PNPDeviceID,PNPClass | ConvertTo-Json -Compress`;
 
 async function getHidIds() {

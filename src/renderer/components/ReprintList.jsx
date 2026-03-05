@@ -405,15 +405,6 @@ export default function ReprintList() {
   useEffect(() => {
     if (!window.electronAPI.scanner) return;
 
-    // Set initial state from current device list (handles scanner already plugged in at startup)
-    window.electronAPI.scanner.getDevices().then((result) => {
-      const count = result?.hids?.length ?? 0;
-      if (count > 0) {
-        setScannerConnected(true);
-        setScannerName(`${count} HID`);
-      }
-    }).catch(() => {});
-
     const cleanup = window.electronAPI.scanner.onDeviceChanged((data) => {
       if (data.type === 'connected') {
         setScannerConnected(true);

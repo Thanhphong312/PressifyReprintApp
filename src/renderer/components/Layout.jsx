@@ -10,7 +10,7 @@ const STATIC_MENU_BEFORE = [
 const STATIC_MENU_AFTER = [
   { path: '/products', label: 'Products', icon: 'bi-box-seam', roles: ['admin'] },
   { path: '/permission', label: 'Permission', icon: 'bi-shield-lock', roles: ['admin'] },
-  { path: '/report', label: 'Report', icon: 'bi-bar-chart-line', roles: ['admin', 'printer'] },
+  { path: '/report', label: 'Report', icon: 'bi-bar-chart-line', roles: ['admin', 'printer', 'hr'] },
   { path: '/settings', label: 'Settings', icon: 'bi-gear', roles: ['admin'] },
 ];
 

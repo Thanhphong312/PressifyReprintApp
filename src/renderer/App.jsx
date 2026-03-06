@@ -99,7 +99,7 @@ function AppRoutes() {
           <Route
             path="report"
             element={
-              <PrivateRoute roles={['admin', 'printer']}>
+              <PrivateRoute roles={['admin', 'printer', 'hr']}>
                 <Report />
               </PrivateRoute>
             }

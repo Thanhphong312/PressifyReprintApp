@@ -142,11 +142,11 @@ export default function Report() {
 
   const typeOpts = Object.entries(reprintTypes).sort(([a], [b]) => Number(a) - Number(b));
 
-  const hasNoneProduct = hasNoneProduct;
+  const hasNoneProduct = whoRows.some((row) => row.byProduct['__none__']);
 
-  function exportWhoCSV() {
-    const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
+  function buildWhoCSV() {
     const productCols = productEntries.map(([, p]) => p.name);
     const headers = ['#', 'Tên', ...productCols, ...(hasNoneProduct ? ['Chưa xác định'] : []), 'Tổng'];
 
@@ -158,7 +158,7 @@ export default function Report() {
         ...(hasNoneProduct ? [row.byProduct['__none__'] || 0] : []),
         row.count,
       ];
-      return cols.map(escape).join(',');
+      return cols.map(esc).join(',');
     });
 
     const footerCols = [
@@ -169,20 +169,81 @@ export default function Report() {
       withWho,
     ];
 
-    const csv = [
-      headers.map(escape).join(','),
+    return [
+      headers.map(esc).join(','),
       ...dataRows,
-      footerCols.map(escape).join(','),
-    ].join('\r\n');
+      footerCols.map(esc).join(','),
+    ];
+  }
 
+  function buildReasonCSV() {
+    const lines = [['#', 'Lý Do', 'Số lần'].map(esc).join(',')];
+    reasonRows.forEach((row, i) => {
+      lines.push([i + 1, row.name, row.count].map(esc).join(','));
+    });
+    lines.push(['', 'Tổng (có ghi nhận)', withReason].map(esc).join(','));
+    return lines;
+  }
+
+  function buildTypeCSV() {
+    const lines = [['#', 'Loại', 'Số lần'].map(esc).join(',')];
+    typeRows.forEach(([name, count], i) => {
+      lines.push([i + 1, name, count].map(esc).join(','));
+    });
+    lines.push(['', 'Tổng cộng', total].map(esc).join(','));
+    return lines;
+  }
+
+  function buildProductCSV() {
+    const lines = [['#', 'Loại Áo', 'Số lần'].map(esc).join(',')];
+    productRows.forEach(([name, count], i) => {
+      lines.push([i + 1, name, count].map(esc).join(','));
+    });
+    lines.push(['', 'Tổng cộng', total].map(esc).join(','));
+    return lines;
+  }
+
+  function downloadCSV(csvLines, filename) {
     const bom = '\uFEFF';
-    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([bom + csvLines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ai-lam-sai_${dateFrom}_${dateTo}.csv`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function exportWhoCSV() {
+    downloadCSV(buildWhoCSV(), `ai-lam-sai_${dateFrom}_${dateTo}.csv`);
+  }
+
+  function exportAllCSV() {
+    const sep = [''];  // blank line separator between sections
+    const lines = [
+      // Summary
+      esc(`Báo Cáo Reprint: ${dateFrom} — ${dateTo}`),
+      ['Tổng số reprint', total].map(esc).join(','),
+      ['Có ghi nhận người làm sai', withWho].map(esc).join(','),
+      ['Có ghi nhận lý do lỗi', withReason].map(esc).join(','),
+      ...sep,
+      // Section 1: Người Làm Sai
+      esc('TỔNG SỐ REPRINT THEO NGƯỜI LÀM SAI'),
+      ...buildWhoCSV(),
+      ...sep,
+      // Section 2: Lý Do Lỗi
+      esc('TỔNG SỐ REPRINT THEO LÝ DO LỖI'),
+      ...buildReasonCSV(),
+      ...sep,
+      // Section 3: Theo Loại
+      esc('TỔNG SỐ REPRINT THEO LOẠI'),
+      ...buildTypeCSV(),
+      ...sep,
+      // Section 4: Theo Loại Áo
+      esc('TỔNG SỐ REPRINT THEO LOẠI ÁO'),
+      ...buildProductCSV(),
+    ];
+    downloadCSV(lines, `bao-cao-reprint_${dateFrom}_${dateTo}.csv`);
   }
 
   if (loading) {
@@ -200,9 +261,14 @@ export default function Report() {
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h4 className="mb-0">Báo Cáo Reprint</h4>
-        <button className="btn btn-sm btn-outline-secondary" onClick={loadData}>
-          <i className="bi bi-arrow-clockwise me-1"></i>Refresh
-        </button>
+        <div className="d-flex gap-2">
+          <button className="btn btn-sm btn-outline-success" onClick={exportAllCSV}>
+            <i className="bi bi-file-earmark-spreadsheet me-1"></i>Export All CSV
+          </button>
+          <button className="btn btn-sm btn-outline-secondary" onClick={loadData}>
+            <i className="bi bi-arrow-clockwise me-1"></i>Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filters */}

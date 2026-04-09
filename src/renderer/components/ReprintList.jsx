@@ -306,6 +306,7 @@ export default function ReprintList() {
   const [dragFill, setDragFill] = useState(null); // { field, value, sourceIdx }
   const [dragFillEnd, setDragFillEnd] = useState(null);
   const [filledIds, setFilledIds] = useState(new Set()); // IDs just filled
+  const [dateTabLimit, setDateTabLimit] = useState(7); // show last N days by default
   const [showOrderFillModal, setShowOrderFillModal] = useState(false);
   const [orderFillText, setOrderFillText] = useState('');
   const [orderFillProgress, setOrderFillProgress] = useState(null); // null | { done, total }
@@ -1078,7 +1079,7 @@ export default function ReprintList() {
         >
           All ({reprintList.length})
         </button>
-        {dateTabs.map((dk) => (
+        {(dateTabLimit ? dateTabs.slice(0, dateTabLimit) : dateTabs).map((dk) => (
           <button
             key={dk}
             className={`btn btn-sm ${activeDate === dk ? 'btn-dark' : 'btn-outline-secondary'}`}
@@ -1087,6 +1088,33 @@ export default function ReprintList() {
             {getDateLabel(dk)} ({dateCounts[dk]})
           </button>
         ))}
+        {dateTabLimit > 0 && dateTabs.length > dateTabLimit && (
+          <button
+            className="btn btn-sm btn-outline-primary"
+            onClick={() => setDateTabLimit(0)}
+            title="Show all dates"
+          >
+            +{dateTabs.length - dateTabLimit} more...
+          </button>
+        )}
+        <div className="ms-auto d-flex align-items-center gap-1">
+          <span className="text-muted small me-1">Show:</span>
+          {[7, 14, 30].map((n) => (
+            <button
+              key={n}
+              className={`btn btn-sm ${dateTabLimit === n ? 'btn-primary' : 'btn-outline-secondary'}`}
+              onClick={() => setDateTabLimit(n)}
+            >
+              {n}d
+            </button>
+          ))}
+          <button
+            className={`btn btn-sm ${dateTabLimit === 0 ? 'btn-primary' : 'btn-outline-secondary'}`}
+            onClick={() => setDateTabLimit(0)}
+          >
+            All
+          </button>
+        </div>
       </div>
 
       <div className="card">

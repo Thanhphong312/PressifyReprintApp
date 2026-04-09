@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Pressify Reprint is an Electron desktop application (React frontend) for managing print reprint operations. It communicates with a Laravel Vanguard API backend (`D:\xampp\htdocs\LaravelVanguard`) via REST API using Sanctum token authentication. The app has role-based access control for 11 roles: admin, user, seller, supplier, staff, support, designer, printer, cuter, picker, presser.
+Pressify Reprint is an Electron desktop application (React frontend) for managing print reprint operations. It communicates with a Laravel Vanguard API backend (`D:\xampp\htdocs\LaravelVanguard`) via REST API using Sanctum token authentication. The app has role-based access control for 12 roles: admin, user, seller, supplier, staff, support, designer, printer, cuter, picker, presser, hr.
 
 ## Commands
 
@@ -33,6 +33,7 @@ Main Process (src/main/main.js)
   ├── Window creation (contextIsolation=true, nodeIntegration=false)
   ├── Settings via electron-store ("pressify-settings") → apiBaseUrl, apiTimeout
   ├── API client init (src/main/api-client.js → Laravel Vanguard REST API)
+  ├── Legacy MySQL pool (src/main/database.js — unused, kept for reference)
   ├── IPC handlers proxy all db/auth/settings calls to API (src/main/ipc-handlers.js)
   ├── Token storage (src/main/token-store.js → electron-store + safeStorage)
   ├── Auto-updater (update-electron-app, checks GitHub Releases, production only)
@@ -116,6 +117,7 @@ Uses `HashRouter` (required for Electron's `file://` protocol). Routes are wrapp
 - `/reprints` → redirects to `/reprints/:firstTypeId` (ReprintRedirect)
 - `/reprints/:typeId` — All authenticated users; filters reprints by type; sidebar menu is dynamically generated from `reprintTypes`
 - `/dashboard`, `/products`, `/permission`, `/settings` — Admin only
+- `/report` — Admin, printer, hr
 - Non-admin users are redirected to `/reprints` if they try to access admin routes
 
 ### Key Components
@@ -130,6 +132,7 @@ Uses `HashRouter` (required for Electron's `file://` protocol). Routes are wrapp
 | `ProductImport.jsx` | CSV import via PapaParse (expects columns: product_name, color, size) |
 | `Permission.jsx` | Admin-only user/reason/order-type/reason-error/reprint-type management |
 | `Settings.jsx` | Admin-only API connection settings (URL, timeout, test connection) |
+| `Report.jsx` | Filterable reprint statistics with bar charts (by user, reason, product, type) |
 | `Timeline.jsx` | Activity log per reprint with VN/US timezone display |
 
 ### Inline Editing Patterns (ReprintList.jsx)
@@ -152,7 +155,7 @@ Electron Forge + Webpack bundles the app. Babel handles JSX transpilation (`@bab
 
 ### CI/CD
 
-GitHub Actions (`.github/workflows/build.yml`) triggers on `v*` tags, builds on Windows/macOS/Linux with Node 20, runs `npm run make`, and uploads artifacts to GitHub Releases. The app's auto-updater then picks up new releases via `update-electron-app`.
+GitHub Actions (`.github/workflows/build.yml`) triggers on `v*` tags, builds on `windows-latest` with Node 20, runs `npm run make`, and uploads artifacts to GitHub Releases via `softprops/action-gh-release`. The app's auto-updater then picks up new releases via `update-electron-app`.
 
 ### Reprint Status Flow
 

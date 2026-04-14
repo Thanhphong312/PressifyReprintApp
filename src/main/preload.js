@@ -11,6 +11,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   log: (level, message, data) => ipcRenderer.invoke('log-from-renderer', level, message, data),
 
+  order: {
+    getLineIds: (ids) => ipcRenderer.invoke('order:getLineIds', ids),
+  },
+
   scanner: {
     onDeviceChanged: (cb) => {
       const fn = (_, data) => cb(data);

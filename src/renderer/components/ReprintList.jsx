@@ -26,6 +26,30 @@ function extractOrderId(val) {
   return s;
 }
 
+async function resolveLineIds(orderIds) {
+  const numeric = Array.from(new Set(orderIds.filter((id) => /^\d+$/.test(id))));
+  if (numeric.length === 0) return {};
+  try {
+    if (window.electronAPI?.order?.getLineIds) {
+      return (await window.electronAPI.order.getLineIds(numeric)) || {};
+    }
+    const res = await fetch(`https://pressify.us/api/order-get-line-id?ids=${numeric.join(',')}`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return {};
+    const data = await res.json();
+    const map = {};
+    if (Array.isArray(data)) {
+      data.forEach((row) => {
+        if (row && row.line_id) map[String(row.id)] = row.line_id;
+      });
+    }
+    return map;
+  } catch {
+    return {};
+  }
+}
+
 // ─── Inline editable cell ───
 
 function EditableText({ value, onSave, className, placeholder, readOnly }) {
@@ -978,37 +1002,59 @@ export default function ReprintList() {
             Test
           </button>
           {selectedIds.size > 0 && (<>
-            <button className="btn btn-sm btn-outline-secondary" onClick={() => {
-              const lines = [];
+            <button className="btn btn-sm btn-outline-secondary" onClick={async () => {
+              const orderIds = [];
               selectedIds.forEach((id) => {
                 const r = reprints[id];
-                if (r && r.order_id && r.order_id.trim()) lines.push(r.order_id);
+                if (r && r.order_id && r.order_id.trim()) orderIds.push(r.order_id.trim());
               });
-              if (lines.length > 0) {
-                navigator.clipboard.writeText(lines.join('\n'));
-                setCopyMsg(`Copied ${lines.length} ID(s)`);
-              } else {
+              if (orderIds.length === 0) {
                 setCopyMsg('No order IDs to copy');
+                setTimeout(() => setCopyMsg(null), 2000);
+                return;
               }
+              setCopyMsg('Resolving line IDs...');
+              const lineMap = await resolveLineIds(orderIds);
+              const seen = new Set();
+              const lines = [];
+              orderIds.forEach((oid) => {
+                const resolved = lineMap[oid] || oid;
+                if (!seen.has(resolved)) {
+                  seen.add(resolved);
+                  lines.push(resolved);
+                }
+              });
+              navigator.clipboard.writeText(lines.join('\n'));
+              setCopyMsg(`Copied ${lines.length} ID(s)`);
               setTimeout(() => setCopyMsg(null), 2000);
             }}>
               Copy IDs ({selectedIds.size})
             </button>
-            <button className="btn btn-sm btn-outline-secondary" onClick={() => {
-              const lines = [];
+            <button className="btn btn-sm btn-outline-secondary" onClick={async () => {
+              const rows = [];
               selectedIds.forEach((id) => {
                 const r = reprints[id];
                 if (r && r.order_id && r.order_id.trim()) {
-                  const note = (r.note || '').trim();
-                  lines.push(note ? `${r.order_id} ${note}` : r.order_id);
+                  rows.push({ orderId: r.order_id.trim(), note: (r.note || '').trim() });
                 }
               });
-              if (lines.length > 0) {
-                navigator.clipboard.writeText(lines.join('\n'));
-                setCopyMsg(`Copied ${lines.length} ID(s) with notes`);
-              } else {
+              if (rows.length === 0) {
                 setCopyMsg('No order IDs to copy');
+                setTimeout(() => setCopyMsg(null), 2000);
+                return;
               }
+              setCopyMsg('Resolving line IDs...');
+              const lineMap = await resolveLineIds(rows.map((x) => x.orderId));
+              const seen = new Set();
+              const lines = [];
+              rows.forEach(({ orderId, note }) => {
+                const resolved = lineMap[orderId] || orderId;
+                if (seen.has(resolved)) return;
+                seen.add(resolved);
+                lines.push(note ? `${resolved} ${note}` : resolved);
+              });
+              navigator.clipboard.writeText(lines.join('\n'));
+              setCopyMsg(`Copied ${lines.length} ID(s) with notes`);
               setTimeout(() => setCopyMsg(null), 2000);
             }}>
               Copy with Note ({selectedIds.size})
@@ -1211,7 +1257,19 @@ export default function ReprintList() {
                             className="btn btn-sm p-0 border-0 text-muted"
                             style={{ fontSize: '0.7rem', lineHeight: 1 }}
                             title="Copy Order ID"
-                            onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(r.order_id); setCopyMsg('Copied: ' + r.order_id); setTimeout(() => setCopyMsg(null), 2000); }}
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const oid = (r.order_id || '').trim();
+                              let toCopy = oid;
+                              if (/^\d+$/.test(oid)) {
+                                setCopyMsg('Resolving line ID...');
+                                const lineMap = await resolveLineIds([oid]);
+                                toCopy = lineMap[oid] || oid;
+                              }
+                              navigator.clipboard.writeText(toCopy);
+                              setCopyMsg('Copied: ' + toCopy);
+                              setTimeout(() => setCopyMsg(null), 2000);
+                            }}
                           >
                             <i className="bi bi-clipboard"></i>
                           </button>

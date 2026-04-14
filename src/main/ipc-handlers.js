@@ -334,6 +334,31 @@ function registerHandlers() {
   ipcMain.handle('auth:get-status', async () => {
     return { ssoEnabled: true, hasToken: apiClient.hasToken() };
   });
+
+  ipcMain.handle('order:getLineIds', async (_, ids) => {
+    const list = Array.isArray(ids) ? ids.filter((x) => /^\d+$/.test(String(x))) : [];
+    if (list.length === 0) return {};
+    try {
+      const { net } = require('electron');
+      const url = `https://pressify.us/api/order-get-line-id?ids=${list.join(',')}`;
+      const res = await net.fetch(url, { headers: { Accept: 'application/json' } });
+      if (!res.ok) {
+        logger.warn('order:getLineIds non-OK', { status: res.status });
+        return {};
+      }
+      const data = await res.json();
+      const map = {};
+      if (Array.isArray(data)) {
+        data.forEach((row) => {
+          if (row && row.line_id != null) map[String(row.id)] = row.line_id;
+        });
+      }
+      return map;
+    } catch (err) {
+      logger.error('order:getLineIds failed', { message: err.message });
+      return {};
+    }
+  });
 }
 
 module.exports = { registerHandlers };
